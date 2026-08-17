@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14110d">
+<link rel="manifest" href="manifest.json">
+<title>HV Install Test</title>
+<style>
+  :root{--bg:#14110d;--card:#211c16;--line:#372f24;--ink:#ece3d4;--dim:#c6bba4;--faint:#8a7f6d;
+    --ember:#e0823c;--green:#6fa87c;--red:#cf7157;
+    --serif:"Iowan Old Style",Palatino,Georgia,serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif);padding:20px;line-height:1.5}
+  .plate{border:2px solid #6b5637;border-radius:8px;padding:14px 16px;text-align:center;margin-bottom:22px;
+    background:linear-gradient(180deg,#2a2318,#211c16)}
+  .plate h1{font-family:var(--mono);font-size:15px;letter-spacing:.22em;color:var(--ember);margin:0}
+  .plate p{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--dim);margin:6px 0 0;text-transform:uppercase}
+  .row{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);background:var(--card);
+    border-radius:8px;padding:13px 15px;margin:9px 0}
+  .st{font-family:var(--mono);font-size:15px;min-width:24px;text-align:center;padding-top:1px}
+  .ok{color:var(--green)} .bad{color:var(--red)} .wait{color:var(--faint)}
+  .row b{display:block;font-size:15.5px}
+  .row span{color:var(--dim);font-size:13.5px;font-family:var(--mono)}
+  .foot{margin-top:22px;border-left:3px solid var(--ember);background:rgba(224,130,60,.07);
+    padding:12px 14px;font-size:14px;color:var(--dim)}
+  .foot b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="plate"><h1>H.V. INSTALL TEST</h1><p>Dummy unit · proves the v2 deployment path</p></div>
+<div id="checks"></div>
+<div class="foot" id="foot"><b>The three-launch test:</b> 1) In Chrome, all rows above should go green
+except "standalone". 2) Install via ⋮ → Add to Home screen, launch from the icon — "standalone"
+goes green. 3) Airplane mode ON, relaunch from the icon — everything still green and
+"first opened" unchanged. Pass all three and v2's deployment is proven.</div>
+
+<script>
+/* Chrome fires this only when ALL install criteria are met — it is the browser's
+   own verdict that the page is installable. */
+window.__installable=false;
+addEventListener("beforeinstallprompt",e=>{window.__installable=true;});
+
+const R=[];
+function row(id,label){R.push({id,label,st:"wait",note:"checking…"});}
+row("secure","Secure context (HTTPS)");
+row("sw","Service worker registered & controlling");
+row("cache","Offline cache populated");
+row("manifest","Manifest loaded");
+row("standalone","Running as installed app (standalone)");
+row("store","Storage stable across launches");
+row("net","Network state");
+
+function set(id,st,note){const r=R.find(x=>x.id===id); r.st=st; r.note=note; draw();}
+function draw(){
+  document.getElementById("checks").innerHTML=R.map(r=>{
+    const m=r.st==="ok"?["✓","ok"]:r.st==="bad"?["✕","bad"]:["·","wait"];
+    return '<div class="row"><div class="st '+m[1]+'">'+m[0]+'</div><div><b>'+r.label+'</b><span>'+r.note+'</span></div></div>';
+  }).join("");
+}
+draw();
+
+/* 1 — secure context */
+set("secure", window.isSecureContext?"ok":"bad",
+  window.isSecureContext?"origin: "+location.origin:"NOT secure — SW and install are unavailable here");
+
+/* 2+3 — service worker + cache */
+if(!("serviceWorker" in navigator)){ set("sw","bad","not supported in this browser"); set("cache","bad","—"); }
+else{
+  navigator.serviceWorker.register("sw.js").then(reg=>{
+    const state=()=> navigator.serviceWorker.controller
+      ? set("sw","ok","controlling this page — cache-first is live")
+      : set("sw","wait","registered — reload once to let it take control");
+    state();
+    navigator.serviceWorker.addEventListener("controllerchange",state);
+    setTimeout(()=>caches.keys().then(ks=>{
+      if(!ks.length) return set("cache","wait","no cache yet — reload once");
+      caches.open(ks[0]).then(c=>c.keys()).then(k=>
+        set("cache","ok",ks[0]+" holds "+k.length+" files — airplane-mode relaunch will work"));
+    }),700);
+  }).catch(e=>{ set("sw","bad",String(e).slice(0,80)); set("cache","bad","—"); });
+}
+
+/* 4 — manifest */
+fetch("manifest.json").then(r=>r.json()).then(m=>
+  set("manifest","ok",'"'+m.name+'" · display: '+m.display)
+).catch(()=>set("manifest","bad","manifest.json failed to load"));
+
+/* 5 — standalone display mode */
+const standalone=matchMedia("(display-mode: standalone)").matches;
+set("standalone", standalone?"ok":"wait",
+  standalone?"launched from the installed icon — no browser UI"
+            :"normal in a browser tab; goes green when launched from the installed icon");
+
+/* 6 — storage stability (the content:// failure this design avoids) */
+try{
+  let first=localStorage.getItem("hv-first");
+  if(!first){ first=new Date().toLocaleString(); localStorage.setItem("hv-first",first); }
+  const visits=(+localStorage.getItem("hv-visits")||0)+1;
+  localStorage.setItem("hv-visits",String(visits));
+  set("store","ok","first opened "+first+" · launch #"+visits+" — this date must survive every relaunch");
+}catch(e){ set("store","bad","localStorage unavailable: "+e.name); }
+
+/* 7 — network */
+function net(){ set("net","ok", navigator.onLine
+  ? "online — if airplane mode is ON and you still see this page, the cache served it"
+  : "OFFLINE — and the app is running. The cache works."); }
+net(); addEventListener("online",net); addEventListener("offline",net);
+</script>
+</body>
+</html>
