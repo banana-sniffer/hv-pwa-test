@@ -1,10 +1,10 @@
 {
-  "name": "HV Install Test",
-  "short_name": "HV Test",
+  "name": "Badge Board",
+  "short_name": "Badge Board",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#14110d",
-  "theme_color": "#14110d",
+  "background_color": "#2c4432",
+  "theme_color": "#2c4432",
   "start_url": "./",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
