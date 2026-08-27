@@ -336,7 +336,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.6",
+  version: "mock-2.7",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -429,7 +429,7 @@ const Store = {
    App
    ===================================================================== */
 const App = {
-  openTrial:null, taps:0, tapT:null, flippedOnce:false, congratsT:null,
+  openTrial:null, taps:0, tapT:null, flippedOnce:false,
 
   init(){
     Store.load();
@@ -480,10 +480,9 @@ const App = {
     const done = Logic.allDone(Store.state);
     const wasShown = document.getElementById("superwrap").classList.contains("show");
     document.getElementById("superwrap").classList.toggle("show", done);
-    if(done && !wasShown && !Store.state.congratsSeen){
+    if(done && !wasShown){
+      /* the Seal announces itself; the congrats card waits for a tap on it */
       setTimeout(()=>{ document.getElementById("superwrap").scrollIntoView({block:"center",behavior:"smooth"}); }, 1200);
-      clearTimeout(this.congratsT);
-      this.congratsT = setTimeout(()=>this.showCongrats(), 3400);
     }
   },
 
@@ -729,7 +728,6 @@ const App = {
       }
       if(act==="reset"){
         if(!window.confirm("Reset the whole board?")) return;
-        clearTimeout(this.congratsT);
         Store.reset();
         document.getElementById("congratsOvl").classList.remove("show");
         document.body.style.overflow = "";
