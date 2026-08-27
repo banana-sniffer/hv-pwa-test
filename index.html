@@ -89,17 +89,17 @@
     var(--patch,var(--leaf))}
   .earned .front .stitch{color:var(--stitchc,var(--cream))}
   .earned .front .inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:5px;padding:14%}
+    justify-content:center;gap:5px;padding:17% 15%}
   .earned .front svg.icon{width:42%;height:42%;color:var(--icon,var(--outline))}
   .earned .front .nm{font-family:var(--disp);font-weight:900;font-size:10.5px;letter-spacing:.07em;
-    text-transform:uppercase;color:var(--nmc,var(--outline));text-align:center;padding:0 8px}
+    text-transform:uppercase;color:var(--nmc,var(--outline));text-align:center;padding:0 8px;max-width:82%}
   .earned .back{background:
     linear-gradient(180deg,rgba(255,255,255,.5),transparent 40%,rgba(74,53,36,.14)),
     var(--cream);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:15%}
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:18% 17%}
   .earned .back .stitch{color:var(--bark)}
   .back .bnm{font-family:var(--disp);font-weight:900;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--bark);text-align:center}
+    color:var(--bark);text-align:center;max-width:84%}
   .back .flavor{font-size:11.5px;font-style:italic;color:#6b543c;text-align:center;line-height:1.35}
   .back .stamp{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--cream);background:var(--bark);
     padding:3px 8px;border-radius:3px;transform:rotate(-3deg);margin-top:3px;text-transform:uppercase;font-weight:700;white-space:nowrap}
@@ -109,7 +109,8 @@
   .empty .front{background:
     linear-gradient(180deg,rgba(0,0,0,.2),transparent 45%),
     var(--pine2);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px}
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    padding-bottom:11%}   /* keep the CTA off the lower stitching */
   .empty .front .stitch{color:rgba(246,240,210,.45)}
   .empty .front .stitch .ring{stroke:rgba(246,240,210,.3);stroke-width:5}
   .empty .front svg.icon{width:30%;height:30%;color:rgba(246,240,210,.5);z-index:1}
@@ -292,7 +293,7 @@
     <div class="tstat">
       <div class="picked" id="tPicked"></div>
       <div style="display:flex;gap:8px">
-        <button class="btn ghostbtn" id="tClose">Step away</button>
+        <button class="btn ghostbtn" id="tClose">Back</button>
         <button class="btn" id="tConfirm" disabled>Stamp it</button>
       </div>
     </div>
@@ -335,7 +336,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.5",
+  version: "mock-2.6",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -354,7 +355,7 @@ const CONFIG = {
     { id:"carve", name:"Woodcarving",  icon:"carve",   done:"JUN 2001", patch:"#8a5560", icontint:"#f6f0d2",
       flavor:"One block, one blade, steady hands." },
     { id:"bird", name:"Bird Study", icon:"bird", trial:true, patch:"#5d9668", icontint:"#241a10",
-      intro:"Five calls sound from the speaker, over and over. Ten birds are listed. Mark the five you hear — the machine already knows their voices.",
+      intro:"Tune the camp radio to 97.1 — five calls play on repeat. Ten birds are listed below. Mark the five you hear; the machine already knows their voices.",
       flavor:"Knew five voices in the dark.",
       items:["Barred Owl","Great Horned Owl","Eastern Phoebe","Chickadee","Carolina Wren",
              "Cardinal","Green Heron","Mourning Dove","Blue Jay","Downy Woodpecker"],
