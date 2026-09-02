@@ -360,7 +360,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.12",
+  version: "mock-2.13",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -687,7 +687,7 @@ const App = {
     grid.classList.remove("beta-on");
     grid.innerHTML =
       '<div class="mwhead">YOUR ANSWER</div>'+
-      '<input class="tinput" id="tText" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="one word">';
+      '<input class="tinput" id="tText" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="answer">';
     const inp = document.getElementById("tText");
     inp.value = buf.text || "";
     inp.addEventListener("input", ()=>{
