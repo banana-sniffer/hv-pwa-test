@@ -237,6 +237,9 @@
   .gm button:hover{border-color:var(--must);color:var(--cream)}
 
   /* --- Magic (scattered deck) trial --- */
+  .mbanner{font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.22em;text-align:center;padding:8px;border-radius:8px;border:1px solid #4a4032;color:#8a7f6d;background:rgba(0,0,0,.25)}
+  .mbanner.armed{color:#6fa87c;border-color:rgba(111,168,124,.6);background:rgba(111,168,124,.1)}
+  .mlast{font-size:14px;text-align:center;color:#ece3d4;margin:8px 0 2px;min-height:20px}
   .mwhead{font-family:var(--mono,ui-monospace,monospace);font-size:10px;letter-spacing:.14em;color:#8a7f6d;text-transform:uppercase;margin:10px 0 6px}
   .mstage{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:2px 0 6px}
   .mslot{width:46px;height:64px;border:2px dashed #4a4032;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:rgba(0,0,0,.25)}
@@ -397,7 +400,7 @@ const CONFIG = {
       items:["ALL","DAY","I","FOLLOW","GONE","AT","NIGHT",
              "EVER","THE","MOON","STAY","FIRST"],
       answer:["ALL","DAY","I","FOLLOW","GONE","AT","NIGHT"] },
-    { id:"magic", name:"Magic", icon:"magic", trial:true, nfc:true, cyclic:true, patch:"#8a5560", icontint:"#f6f0d2", stitch:"#dca83f",
+    { id:"magic", name:"Magic", icon:"magic", trial:true, nfc:true, cyclic:true, shipped:true, patch:"#8a5560", icontint:"#f6f0d2", stitch:"#dca83f",
       intro:"Seven cards hang on the wall. Set them in Si Stebbins order and pass the wand over each in turn. Start anywhere — the order is the act.",
       flavor:"The deck never forgot its order.",
       /* NFC tag payloads are hh:card.<code>. The seven ARE the Si Stebbins run (+3 rank, suits ♣♥♠♦):
@@ -676,23 +679,46 @@ const App = {
     if(!Array.isArray(buf.found)) buf.found = [];
     buf.picks = buf.picks.filter(c=>this.cardByCode(b,c));
     const betaEl = document.getElementById("tBeta");
-    if(CONFIG.beta){
+    const devSim = /[?&]sim\b/.test(location.search) || (CONFIG.beta && !b.shipped);
+    if(devSim){
       betaEl.innerHTML = '<b>BETA KEY</b> · ' + b.answer.map(c=>esc(this.cardByCode(b,c).label)).join(" → ") + (b.cyclic ? " · any start" : "");
       betaEl.classList.add("show");
     } else betaEl.classList.remove("show");
     const grid = document.getElementById("tGrid");
-    grid.classList.toggle("beta-on", !!CONFIG.beta);
+    grid.classList.toggle("beta-on", devSim);
     grid.innerHTML =
+      '<div class="mbanner" id="mBanner">WAND ASLEEP</div>'+
+      '<div class="mlast" id="mLast">Pass the unit over a card.</div>'+
       '<div class="mwhead">THE ACT — cards as the wand meets them</div><div class="mstage" id="mStage"></div>'+
-      '<div class="marm"><button class="btn ghostbtn" id="mArm" type="button">ARM THE DECK</button>'+
-      '<span class="mstatus" id="mStatus">'+("NDEFReader" in window ? "The wand is cold." : "No reader in this browser — use the sim deck below.")+'</span></div>'+
+      '<div class="marm"><button class="btn ghostbtn" id="mArm" type="button">ARM THE WAND</button>'+
+      '<button class="btn ghostbtn" id="mReset" type="button">RESET THE ACT</button>'+
+      '<span class="mstatus" id="mStatus"></span></div>'+
       '<div class="mwhead" id="mWingsHead"></div><div class="mwings" id="mWings"></div>';
+    this._devSim = devSim;
     document.getElementById("mArm").addEventListener("click", ()=>this.armMagic(b));
+    document.getElementById("mReset").addEventListener("click", ()=>this.resetAct(b));
     document.getElementById("tReject").classList.remove("show");
     this.renderMagic(b);
     this.renderTrialState();
     document.getElementById("trialOvl").classList.add("show");
     document.body.style.overflow = "hidden";
+    this.armMagic(b);   /* arm on open — the badge tap is the user gesture */
+  },
+
+  resetAct(b){
+    const buf = Store.buf(b.id);
+    buf.picks = []; Store.save();
+    document.getElementById("tReject").classList.remove("show");
+    this.setLast("The act is cleared. Start from any card.");
+    this.renderMagic(b); this.renderTrialState();
+  },
+
+  setLast(msg){ const el = document.getElementById("mLast"); if(el) el.textContent = msg; },
+  setBanner(armed, msg){
+    const el = document.getElementById("mBanner"); if(!el) return;
+    el.textContent = armed ? "WAND ARMED" : "WAND ASLEEP";
+    el.classList.toggle("armed", !!armed);
+    const st = document.getElementById("mStatus"); if(st) st.textContent = msg || "";
   },
 
   renderMagic(b){
@@ -709,8 +735,8 @@ const App = {
     }).join("");
     const wings = document.getElementById("mWings");
     const head = document.getElementById("mWingsHead");
-    if(CONFIG.beta){
-      head.textContent = "SIM DECK — tap to scan (beta)";
+    if(this._devSim){
+      head.textContent = "SIM DECK — tap to scan (test)";
       wings.innerHTML = b.deck.map(c=>'<div class="mchip'+(this.isRed(c.code)?" red":"")+(buf.picks.includes(c.code)?" staged":"")+'" data-code="'+esc(c.code)+'">'+esc(c.label)+'</div>').join("");
       wings.querySelectorAll(".mchip").forEach(ch=>ch.addEventListener("click", ()=>this.handleCardTap(b, ch.dataset.code)));
     } else { head.textContent = ""; wings.innerHTML = ""; }
@@ -718,18 +744,19 @@ const App = {
 
   handleCardTap(b, code){
     const buf = Store.buf(b.id);
-    if(buf.coolUntil > Date.now()){ toast("The deck is shuffling. Wait for it."); return; }
+    if(buf.coolUntil > Date.now()){ this.setLast("The deck is shuffling. Wait for it."); return; }
     const card = this.cardByCode(b, code);
-    if(!card){ toast("The deck doesn't know that card."); if(navigator.vibrate) try{ navigator.vibrate(40); }catch(_){} return; }
-    const next = buf.picks.concat([code]);
-    if(Logic.orderPrefixOk(b, next)){
-      buf.picks = next; Store.save();
-      if(navigator.vibrate) try{ navigator.vibrate(30); }catch(_){}
-      document.getElementById("tReject").classList.remove("show");
-      this.renderMagic(b); this.renderTrialState();
-      if(next.length === b.answer.length){ this.earnBadge(b.id); }   /* the seventh card lands: the act passes */
-    } else {
-      /* a wrong card breaks the act: everything resets, and it counts as a strike */
+    if(!card){ this.setLast("The deck doesn't know that card."); if(navigator.vibrate) try{ navigator.vibrate(40); }catch(_){} return; }
+    if(buf.picks.includes(code)){ this.setLast(card.label+" is already in the act."); return; }
+    if(buf.picks.length >= b.answer.length) return;
+    buf.picks.push(code); Store.save();
+    if(navigator.vibrate) try{ navigator.vibrate(30); }catch(_){}
+    document.getElementById("tReject").classList.remove("show");
+    this.setLast("Scanned: "+card.label+"  ·  "+buf.picks.length+" of "+b.answer.length);
+    this.renderMagic(b); this.renderTrialState();
+    if(buf.picks.length === b.answer.length){
+      /* seven cards down: the act is judged as a whole */
+      if(Logic.validate(b, buf.picks)){ this.earnBadge(b.id); return; }
       buf.picks = [];
       buf.strikes = (buf.strikes||0) + 1;
       if(buf.strikes >= CONFIG.strikesBeforeCooldown) buf.coolUntil = Date.now() + CONFIG.cooldownSeconds*1000;
@@ -737,10 +764,11 @@ const App = {
       if(navigator.vibrate) try{ navigator.vibrate([60,40,60]); }catch(_){}
       const rej = document.getElementById("tReject");
       rej.innerHTML = '<span class="try">Attempt '+Math.min(buf.strikes,CONFIG.strikesBeforeCooldown)+' of '+CONFIG.strikesBeforeCooldown+'</span>'+
-        '<span class="why">That is not your card. The act starts over — from any card you like.</span>';
+        '<span class="why">That was not the act. The cards are cleared — start again from any card.</span>';
       rej.classList.add("show");
       const sheet = document.getElementById("trialSheet");
       sheet.classList.remove("shake"); void sheet.offsetWidth; sheet.classList.add("shake");
+      this.setLast("The act failed. Begin again.");
       this.renderMagic(b); this.renderTrialState();
     }
   },
@@ -762,14 +790,15 @@ const App = {
   },
 
   armMagic(b){
-    if(!("NDEFReader" in window)){ document.getElementById("mStatus").textContent = "No reader in this browser — use the sim deck below."; return; }
-    if(this._nfcCtl){ document.getElementById("mStatus").textContent = "The wand is already armed."; return; }
+    if(!("NDEFReader" in window)){ this.setBanner(false, this._devSim ? "No reader here — use the sim deck." : "No reader in this browser."); return; }
+    if(this._nfcCtl){ this.setBanner(true, "Press the unit flat to a card."); return; }
     const ctl = new AbortController();
     const reader = new NDEFReader();
     this._lastTag = {};
+    ctl.signal.addEventListener("abort", ()=>{ if(this._nfcCtl === ctl) this._nfcCtl = null; this.setBanner(false, "Tap ARM THE WAND."); });
     reader.scan({signal: ctl.signal}).then(()=>{
       this._nfcCtl = ctl;
-      document.getElementById("mStatus").textContent = "ARMED — press the unit flat to a card.";
+      this.setBanner(true, "Press the unit flat to a card.");
       reader.onreading = e=>{
         const code = this.parseCardPayload(b, e.message);
         if(!code) return;
@@ -778,8 +807,10 @@ const App = {
         this._lastTag[code] = now;
         if(this.openTrial === b.id) this.handleCardTap(b, code);
       };
+      reader.onreadingerror = ()=>{ this.setLast("The wand felt something it could not read. Hold steadier."); };
     }).catch(err=>{
-      document.getElementById("mStatus").textContent = "The wand will not arm ("+err.name+"). Is NFC on?";
+      this._nfcCtl = null;
+      this.setBanner(false, "Will not arm ("+err.name+"). Is NFC on? Tap ARM THE WAND.");
     });
   },
 
@@ -870,6 +901,11 @@ const App = {
   },
 
   wireOverlays(){
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.hidden) return;
+      const b = this.openTrial ? Logic.byId(this.openTrial) : null;
+      if(b && b.nfc && !this._nfcCtl) this.armMagic(b);
+    });
     document.getElementById("tConfirm").addEventListener("click", ()=>this.confirm());
     document.getElementById("tClose").addEventListener("click", ()=>this.closeTrial());
     /* deliberately NO backdrop tap-to-close — edge taps in the dark eject people */
