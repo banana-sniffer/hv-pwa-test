@@ -1,5 +1,5 @@
 /* Badge Board — cache-first. Bump the cache name on every deploy. */
-const C = "badge-board-v12";
+const C = "badge-board-v13";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(ASSETS)));
