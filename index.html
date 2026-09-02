@@ -745,6 +745,22 @@ const App = {
     }
   },
 
+  /* tag payloads: bare card codes as written on the stickers ("7D", "4S"), case-insensitive;
+     "hh:card.7D" is accepted too. Returns the deck code or null. */
+  parseCardPayload(b, message){
+    let text = "";
+    try{
+      for(const r of message.records){
+        if(r.recordType === "text"){ text = new TextDecoder(r.encoding||"utf-8").decode(r.data); break; }
+        if(!text && r.data){ try{ text = new TextDecoder("utf-8").decode(r.data); }catch(_){} }
+      }
+    }catch(_){}
+    text = (text||"").trim().toUpperCase().replace(/^HH:CARD\./,"").replace(/[^0-9A-Z]/g,"");
+    if(!text) return null;
+    const hit = (b.deck||[]).find(c=>c.code.toUpperCase()===text);
+    return hit ? hit.code : "?"+text;   /* unknown but present → "The deck doesn't know that card." */
+  },
+
   armMagic(b){
     if(!("NDEFReader" in window)){ document.getElementById("mStatus").textContent = "No reader in this browser — use the sim deck below."; return; }
     if(this._nfcCtl){ document.getElementById("mStatus").textContent = "The wand is already armed."; return; }
@@ -755,15 +771,8 @@ const App = {
       this._nfcCtl = ctl;
       document.getElementById("mStatus").textContent = "ARMED — press the unit flat to a card.";
       reader.onreading = e=>{
-        let text = "";
-        try{
-          for(const r of e.message.records){
-            if(r.recordType === "text"){ text = new TextDecoder(r.encoding||"utf-8").decode(r.data); break; }
-          }
-        }catch(_){}
-        text = (text||"").trim();
-        if(text.indexOf("hh:card.") !== 0) return;
-        const code = text.slice(8);
+        const code = this.parseCardPayload(b, e.message);
+        if(!code) return;
         const now = Date.now();
         if(this._lastTag[code] && now - this._lastTag[code] < 3000) return;  /* debounce re-reads */
         this._lastTag[code] = now;
