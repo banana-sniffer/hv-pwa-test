@@ -239,7 +239,7 @@
   /* --- Magic (scattered deck) trial --- */
   .mwhead{font-family:var(--mono,ui-monospace,monospace);font-size:10px;letter-spacing:.14em;color:#8a7f6d;text-transform:uppercase;margin:10px 0 6px}
   .mstage{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:2px 0 6px}
-  .mslot{width:46px;height:64px;border:2px dashed #4a4032;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;background:rgba(0,0,0,.25)}
+  .mslot{width:46px;height:64px;border:2px dashed #4a4032;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:rgba(0,0,0,.25)}
   .mslot .card{font-size:15px;font-weight:700;color:#8a7f6d}
   .mslot .lbl{font-family:var(--mono,ui-monospace,monospace);font-size:7px;letter-spacing:.08em;color:#8a7f6d}
   .mslot.filled{border-style:solid;border-color:#241a10;background:#f6f0d2}
@@ -354,7 +354,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.8",
+  version: "mock-2.9",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -397,15 +397,14 @@ const CONFIG = {
       items:["ALL","DAY","I","FOLLOW","GONE","AT","NIGHT",
              "EVER","THE","MOON","STAY","FIRST"],
       answer:["ALL","DAY","I","FOLLOW","GONE","AT","NIGHT"] },
-    { id:"magic", name:"Magic", icon:"magic", trial:true, nfc:true, patch:"#8a5560", icontint:"#f6f0d2", stitch:"#dca83f",
-      intro:"Ten cards wait in the wings. Seven perform. The order is the trick — the opener knows who leads.",
+    { id:"magic", name:"Magic", icon:"magic", trial:true, nfc:true, cyclic:true, patch:"#8a5560", icontint:"#f6f0d2", stitch:"#dca83f",
+      intro:"Seven cards hang on the wall. Set them in Si Stebbins order and pass the wand over each in turn. Start anywhere — the order is the act.",
       flavor:"The deck never forgot its order.",
-      /* Scattered deck — NFC tag payloads are hh:card.<code>. Chain = Card Work sheet, Lesson Two (Si Stebbins from 7♥).
-         Deck = 7 chain cards + 3 decoys. Lesson One/Three opener cards (8♦, Q♣) must NOT be in this deck. */
-      deck:[ {code:"7H", label:"7♥"},{code:"10S",label:"10♠"},{code:"KD",label:"K♦"},{code:"3C",label:"3♣"},
-             {code:"6H", label:"6♥"},{code:"9S", label:"9♠"},{code:"QD",label:"Q♦"},
-             {code:"AS", label:"A♠"},{code:"2D", label:"2♦"},{code:"JC",label:"J♣"} ],
-      answer:["7H","10S","KD","3C","6H","9S","QD"] }
+      /* NFC tag payloads are hh:card.<code>. The seven ARE the Si Stebbins run (+3 rank, suits ♣♥♠♦):
+         2♥ 5♠ 8♦ J♣ A♥ 4♠ 7♦. cyclic: any rotation of this order passes. A wrong scan resets the act. */
+      deck:[ {code:"2H",label:"2♥"},{code:"5S",label:"5♠"},{code:"8D",label:"8♦"},{code:"JC",label:"J♣"},
+             {code:"AH",label:"A♥"},{code:"4S",label:"4♠"},{code:"7D",label:"7♦"} ],
+      answer:["2H","5S","8D","JC","AH","4S","7D"] }
   ]
 };
 
@@ -418,10 +417,17 @@ const Logic = {
   validate(badge, picks){
     if(!badge || !badge.answer) return false;
     if(picks.length !== badge.answer.length) return false;
-    if(badge.nfc){ return picks.join("|") === badge.answer.join("|"); }  /* the act runs IN ORDER */
+    if(badge.nfc){ return this.orderPrefixOk(badge, picks); }  /* the act runs IN ORDER (any start if cyclic) */
     const a = [...badge.answer].sort().join("|");
     const p = [...picks].sort().join("|");
     return a === p;
+  },
+  /* is `picks` a prefix of the answer order — or, for cyclic badges, of ANY rotation of it? */
+  orderPrefixOk(badge, picks){
+    const a = badge.answer, n = a.length;
+    if(picks.length > n) return false;
+    const starts = badge.cyclic ? [...Array(n).keys()] : [0];
+    return starts.some(s => picks.every((p,i) => p === a[(s+i)%n]));
   },
   allDone(state){ return this.trials().every(t=>state.earned[t.id]); }
 };
@@ -671,13 +677,13 @@ const App = {
     buf.picks = buf.picks.filter(c=>this.cardByCode(b,c));
     const betaEl = document.getElementById("tBeta");
     if(CONFIG.beta){
-      betaEl.innerHTML = '<b>BETA KEY</b> · ' + b.answer.map(c=>esc(this.cardByCode(b,c).label)).join(" → ");
+      betaEl.innerHTML = '<b>BETA KEY</b> · ' + b.answer.map(c=>esc(this.cardByCode(b,c).label)).join(" → ") + (b.cyclic ? " · any start" : "");
       betaEl.classList.add("show");
     } else betaEl.classList.remove("show");
     const grid = document.getElementById("tGrid");
     grid.classList.toggle("beta-on", !!CONFIG.beta);
     grid.innerHTML =
-      '<div class="mwhead">THE STAGE — in order</div><div class="mstage" id="mStage"></div>'+
+      '<div class="mwhead">THE ACT — cards as the wand meets them</div><div class="mstage" id="mStage"></div>'+
       '<div class="marm"><button class="btn ghostbtn" id="mArm" type="button">ARM THE DECK</button>'+
       '<span class="mstatus" id="mStatus">'+("NDEFReader" in window ? "The wand is cold." : "No reader in this browser — use the sim deck below.")+'</span></div>'+
       '<div class="mwhead" id="mWingsHead"></div><div class="mwings" id="mWings"></div>';
@@ -691,49 +697,52 @@ const App = {
 
   renderMagic(b){
     const buf = Store.buf(b.id);
-    const SLOTNAMES = ["OPENER","SECOND","THIRD","FOURTH","FIFTH","SIXTH","FINALE"];
     const stage = document.getElementById("mStage");
     if(!stage) return;
     stage.innerHTML = b.answer.map((_,i)=>{
       const code = buf.picks[i];
       if(code){
         const c = this.cardByCode(b,code);
-        return '<div class="mslot filled" data-i="'+i+'"><span class="card'+(this.isRed(code)?" red":"")+'">'+esc(c.label)+'</span><span class="lbl">'+SLOTNAMES[i]+'</span></div>';
+        return '<div class="mslot filled"><span class="card'+(this.isRed(code)?" red":"")+'">'+esc(c.label)+'</span><span class="lbl">'+(i+1)+'</span></div>';
       }
-      return '<div class="mslot" data-i="'+i+'"><span class="card">·</span><span class="lbl">'+SLOTNAMES[i]+'</span></div>';
+      return '<div class="mslot"><span class="card">·</span><span class="lbl">'+(i+1)+'</span></div>';
     }).join("");
-    stage.querySelectorAll(".mslot.filled").forEach(s=>s.addEventListener("click", ()=>{
-      const buf2 = Store.buf(b.id);
-      if(buf2.coolUntil > Date.now()) return;
-      buf2.picks.splice(+s.dataset.i, 1);
-      Store.save();
-      document.getElementById("tReject").classList.remove("show");
-      this.renderMagic(b); this.renderTrialState();
-    }));
     const wings = document.getElementById("mWings");
     const head = document.getElementById("mWingsHead");
-    const showAll = !!CONFIG.beta;
-    head.textContent = showAll ? "SIM DECK — tap to scan (beta)" : "THE WINGS — cards the wand has met ("+buf.found.length+" of "+b.deck.length+")";
-    const list = showAll ? b.deck : b.deck.filter(c=>buf.found.includes(c.code));
-    wings.innerHTML = list.length
-      ? list.map(c=>'<div class="mchip'+(this.isRed(c.code)?" red":"")+(buf.picks.includes(c.code)?" staged":"")+'" data-code="'+esc(c.code)+'">'+esc(c.label)+'</div>').join("")
-      : '<span class="mstatus">none yet — sweep the room, press the unit to a card.</span>';
-    wings.querySelectorAll(".mchip").forEach(ch=>ch.addEventListener("click", ()=>this.handleCardTap(b, ch.dataset.code)));
+    if(CONFIG.beta){
+      head.textContent = "SIM DECK — tap to scan (beta)";
+      wings.innerHTML = b.deck.map(c=>'<div class="mchip'+(this.isRed(c.code)?" red":"")+(buf.picks.includes(c.code)?" staged":"")+'" data-code="'+esc(c.code)+'">'+esc(c.label)+'</div>').join("");
+      wings.querySelectorAll(".mchip").forEach(ch=>ch.addEventListener("click", ()=>this.handleCardTap(b, ch.dataset.code)));
+    } else { head.textContent = ""; wings.innerHTML = ""; }
   },
 
   handleCardTap(b, code){
     const buf = Store.buf(b.id);
-    if(!Array.isArray(buf.found)) buf.found = [];
-    if(buf.coolUntil > Date.now()) return;
+    if(buf.coolUntil > Date.now()){ toast("The deck is shuffling. Wait for it."); return; }
     const card = this.cardByCode(b, code);
     if(!card){ toast("The deck doesn't know that card."); if(navigator.vibrate) try{ navigator.vibrate(40); }catch(_){} return; }
-    if(!buf.found.includes(code)) buf.found.push(code);
-    if(buf.picks.includes(code)){ toast(card.label+" is already on stage."); }
-    else if(buf.picks.length >= b.answer.length){ toast("The stage takes "+b.answer.length+". Tap a slot to clear one."); }
-    else { buf.picks.push(code); if(navigator.vibrate) try{ navigator.vibrate(30); }catch(_){} }
-    Store.save();
-    document.getElementById("tReject").classList.remove("show");
-    this.renderMagic(b); this.renderTrialState();
+    const next = buf.picks.concat([code]);
+    if(Logic.orderPrefixOk(b, next)){
+      buf.picks = next; Store.save();
+      if(navigator.vibrate) try{ navigator.vibrate(30); }catch(_){}
+      document.getElementById("tReject").classList.remove("show");
+      this.renderMagic(b); this.renderTrialState();
+      if(next.length === b.answer.length){ this.earnBadge(b.id); }   /* the seventh card lands: the act passes */
+    } else {
+      /* a wrong card breaks the act: everything resets, and it counts as a strike */
+      buf.picks = [];
+      buf.strikes = (buf.strikes||0) + 1;
+      if(buf.strikes >= CONFIG.strikesBeforeCooldown) buf.coolUntil = Date.now() + CONFIG.cooldownSeconds*1000;
+      Store.save();
+      if(navigator.vibrate) try{ navigator.vibrate([60,40,60]); }catch(_){}
+      const rej = document.getElementById("tReject");
+      rej.innerHTML = '<span class="try">Attempt '+Math.min(buf.strikes,CONFIG.strikesBeforeCooldown)+' of '+CONFIG.strikesBeforeCooldown+'</span>'+
+        '<span class="why">That is not your card. The act starts over — from any card you like.</span>';
+      rej.classList.add("show");
+      const sheet = document.getElementById("trialSheet");
+      sheet.classList.remove("shake"); void sheet.offsetWidth; sheet.classList.add("shake");
+      this.renderMagic(b); this.renderTrialState();
+    }
   },
 
   armMagic(b){
@@ -774,13 +783,12 @@ const App = {
     const rejected = document.getElementById("tReject").classList.contains("show");
     const n = buf.picks.length, need = b.answer.length;
     document.getElementById("tPicked").innerHTML = b.nfc
-      ? "<b>"+n+"</b> of "+need+" on stage"
+      ? "<b>"+n+"</b> of "+need+" in order"
       : "<b>"+n+"</b> of "+need+" marked";
     const btn = document.getElementById("tConfirm");
+    btn.style.display = b.nfc ? "none" : "";
     btn.disabled = cooling || rejected || n !== need;
-    btn.textContent = cooling ? (b.nfc ? "SHUFFLING" : "COOLING")
-      : (n === need ? (b.nfc ? "RUN THE ACT" : "STAMP IT")
-                    : (b.nfc ? "STAGE "+(need-n)+" MORE" : "MARK "+(need-n)+" MORE"));
+    btn.textContent = cooling ? "COOLING" : (n === need ? "STAMP IT" : "MARK "+(need-n)+" MORE");
     const coolEl = document.getElementById("tCooling");
     if(cooling){
       coolEl.textContent = b.nfc
@@ -791,27 +799,33 @@ const App = {
     document.getElementById("tGrid").style.opacity = cooling ? .45 : 1;
   },
 
+  earnBadge(id){
+    const b = Logic.byId(id);
+    Store.earn(id);
+    this.closeTrial();
+    this.renderBoard();
+    if(navigator.vibrate) try{ navigator.vibrate([30,40,80]); }catch(_){}
+    requestAnimationFrame(()=>{
+      const cell = document.querySelector('.cell[data-id="'+id+'"]');
+      if(cell){
+        cell.classList.add("minting");
+        cell.addEventListener("animationend", ev=>{
+          if(ev.animationName === "mint"){ cell.classList.remove("minting"); cell.classList.add("glint"); }
+        });
+        cell.scrollIntoView({block:"center", behavior:"smooth"});
+      }
+    });
+    toast("Badge earned — "+b.name+". The board remembers.");
+  },
+
   confirm(){
     const id = this.openTrial; if(!id) return;
     const b = Logic.byId(id), buf = Store.buf(id);
+    if(b.nfc) return;                              /* the act passes itself on the last scan */
     if(buf.coolUntil > Date.now()) return;
     if(buf.picks.length !== b.answer.length) return;
     if(Logic.validate(b, buf.picks)){
-      Store.earn(id);
-      this.closeTrial();
-      this.renderBoard();
-      if(navigator.vibrate) try{ navigator.vibrate([30,40,80]); }catch(_){}
-      requestAnimationFrame(()=>{
-        const cell = document.querySelector('.cell[data-id="'+id+'"]');
-        if(cell){
-          cell.classList.add("minting");
-          cell.addEventListener("animationend", ev=>{
-            if(ev.animationName === "mint"){ cell.classList.remove("minting"); cell.classList.add("glint"); }
-          });
-          cell.scrollIntoView({block:"center", behavior:"smooth"});
-        }
-      });
-      toast("Badge earned — "+b.name+". The board remembers.");
+      this.earnBadge(id);
     } else {
       buf.strikes = (buf.strikes||0) + 1;
       if(buf.strikes >= CONFIG.strikesBeforeCooldown){
@@ -820,9 +834,7 @@ const App = {
       Store.save();
       if(navigator.vibrate) try{ navigator.vibrate(60); }catch(_){}
       const rej = document.getElementById("tReject");
-      const why = b.nfc
-        ? "That is not your card. The order stands — change it, then run the act again."
-        : "The machine is unmoved. Your picks stand — change your mind, not your luck.";
+      const why = "The machine is unmoved. Your picks stand — change your mind, not your luck.";
       rej.innerHTML = '<span class="try">Attempt '+Math.min(buf.strikes,CONFIG.strikesBeforeCooldown)+' of '+CONFIG.strikesBeforeCooldown+'</span>'+
         '<span class="why">'+why+'</span>';
       rej.classList.add("show");
