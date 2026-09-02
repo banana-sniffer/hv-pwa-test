@@ -237,6 +237,9 @@
   .gm button:hover{border-color:var(--must);color:var(--cream)}
 
   /* --- Magic (scattered deck) trial --- */
+  .tinput{width:100%;box-sizing:border-box;font-family:var(--mono,ui-monospace,monospace);font-size:22px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:14px 12px;border:2px solid #4a4032;border-radius:10px;background:#f6f0d2;color:#241a10;outline:none}
+  .tinput:focus{border-color:#dca83f}
+  .tinput:disabled{opacity:.5}
   .mbanner{font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.22em;text-align:center;padding:8px;border-radius:8px;border:1px solid #4a4032;color:#8a7f6d;background:rgba(0,0,0,.25)}
   .mbanner.armed{color:#6fa87c;border-color:rgba(111,168,124,.6);background:rgba(111,168,124,.1)}
   .mlast{font-size:14px;text-align:center;color:#ece3d4;margin:8px 0 2px;min-height:20px}
@@ -357,7 +360,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.10",
+  version: "mock-2.11",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -393,13 +396,12 @@ const CONFIG = {
       items:["Rosemary","Spearmint","Italian Parsley","Sage","Jade",
              "Lavender","Lemon Balm","Cilantro","Aloe","Basil"],
       answer:["Rosemary","Spearmint","Italian Parsley","Sage","Jade"] },
-    { id:"books", name:"Book Study", icon:"book", trial:true, patch:"#7da3b8", icontint:"#241a10",
-      intro:"Seven words hide in the library — the light finds them, one book at a time. Mark the seven the books gave you.",
+    { id:"books", name:"Book Study", icon:"book", trial:true, text:true, patch:"#7da3b8", icontint:"#241a10",
+      intro:"You have read many books tonight. Can you solve what was hidden in them?",
       flavor:"Read what the light left behind.",
-      /* PLACEHOLDER word set — lock with the final riddle + marked books (7 real, 5 decoys) */
-      items:["ALL","DAY","I","FOLLOW","GONE","AT","NIGHT",
-             "EVER","THE","MOON","STAY","FIRST"],
-      answer:["ALL","DAY","I","FOLLOW","GONE","AT","NIGHT"] },
+      /* Typed answer. The books' glowing words spell the riddle ("All day I follow, gone at night.");
+         the crew enters the riddle's ANSWER. Matching ignores case, spaces and punctuation. */
+      answer:["SHADOW","SHADOWS","A SHADOW","MY SHADOW","YOUR SHADOW","THE SHADOW"] },
     { id:"magic", name:"Magic", icon:"magic", trial:true, nfc:true, cyclic:true, shipped:true, patch:"#8a5560", icontint:"#f6f0d2", stitch:"#dca83f",
       intro:"Seven cards hang on the wall. Set them in Si Stebbins order and pass the wand over each in turn. Start anywhere — the order is the act.",
       flavor:"The deck never forgot its order.",
@@ -417,8 +419,10 @@ const CONFIG = {
 const Logic = {
   byId(id){ return CONFIG.badges.find(b=>b.id===id) || null; },
   trials(){ return CONFIG.badges.filter(b=>b.trial); },
+  norm(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); },
   validate(badge, picks){
     if(!badge || !badge.answer) return false;
+    if(badge.text){ const n = this.norm(picks); return !!n && badge.answer.some(a=>this.norm(a)===n); }
     if(picks.length !== badge.answer.length) return false;
     if(badge.nfc){ return this.orderPrefixOk(badge, picks); }  /* the act runs IN ORDER (any start if cyclic) */
     const a = [...badge.answer].sort().join("|");
@@ -628,6 +632,7 @@ const App = {
     const b = Logic.byId(id);
     if(!b || !b.trial || Store.state.earned[id]) return;
     if(b.nfc){ this.showMagicTrial(b); return; }
+    if(b.text){ this.showTextTrial(b); return; }
     this.openTrial = id;
     const NUMW = {5:"FIVE",6:"SIX",7:"SEVEN",8:"EIGHT"};
     document.getElementById("tKicker").textContent = "BADGE TRIAL · PICK THE "+(NUMW[b.answer.length]||b.answer.length);
@@ -660,6 +665,37 @@ const App = {
       document.getElementById("tReject").classList.remove("show");
       this.renderTrialState();
     }));
+    document.getElementById("tReject").classList.remove("show");
+    this.renderTrialState();
+    document.getElementById("trialOvl").classList.add("show");
+    document.body.style.overflow = "hidden";
+  },
+
+  /* ---------- typed-answer trial (Book Study) ---------- */
+  showTextTrial(b){
+    this.openTrial = b.id;
+    document.getElementById("tKicker").textContent = "BADGE TRIAL · SOLVE WHAT IS HIDDEN";
+    document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
+    document.getElementById("tIntro").textContent = b.intro;
+    const buf = Store.buf(b.id);
+    const betaEl = document.getElementById("tBeta");
+    if(CONFIG.beta && !b.shipped){
+      betaEl.innerHTML = '<b>BETA KEY</b> · ' + esc(b.answer[0]);
+      betaEl.classList.add("show");
+    } else betaEl.classList.remove("show");
+    const grid = document.getElementById("tGrid");
+    grid.classList.remove("beta-on");
+    grid.innerHTML =
+      '<div class="mwhead">YOUR ANSWER</div>'+
+      '<input class="tinput" id="tText" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="one word">';
+    const inp = document.getElementById("tText");
+    inp.value = buf.text || "";
+    inp.addEventListener("input", ()=>{
+      buf.text = inp.value; Store.save();
+      document.getElementById("tReject").classList.remove("show");
+      this.renderTrialState();
+    });
+    inp.addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); this.confirm(); } });
     document.getElementById("tReject").classList.remove("show");
     this.renderTrialState();
     document.getElementById("trialOvl").classList.add("show");
@@ -822,13 +858,21 @@ const App = {
     const cooling = buf.coolUntil > now;
     const rejected = document.getElementById("tReject").classList.contains("show");
     const n = buf.picks.length, need = b.answer.length;
-    document.getElementById("tPicked").innerHTML = b.nfc
-      ? "<b>"+n+"</b> of "+need+" in order"
-      : "<b>"+n+"</b> of "+need+" marked";
     const btn = document.getElementById("tConfirm");
     btn.style.display = b.nfc ? "none" : "";
-    btn.disabled = cooling || rejected || n !== need;
-    btn.textContent = cooling ? "COOLING" : (n === need ? "STAMP IT" : "MARK "+(need-n)+" MORE");
+    if(b.text){
+      const has = !!Logic.norm(buf.text);
+      document.getElementById("tPicked").innerHTML = has ? "<b>one</b> answer, ready" : "type your answer";
+      btn.disabled = cooling || rejected || !has;
+      btn.textContent = cooling ? "COOLING" : "STAMP IT";
+      const inp = document.getElementById("tText"); if(inp) inp.disabled = cooling;
+    } else {
+      document.getElementById("tPicked").innerHTML = b.nfc
+        ? "<b>"+n+"</b> of "+need+" in order"
+        : "<b>"+n+"</b> of "+need+" marked";
+      btn.disabled = cooling || rejected || n !== need;
+      btn.textContent = cooling ? "COOLING" : (n === need ? "STAMP IT" : "MARK "+(need-n)+" MORE");
+    }
     const coolEl = document.getElementById("tCooling");
     if(cooling){
       coolEl.textContent = b.nfc
@@ -863,8 +907,9 @@ const App = {
     const b = Logic.byId(id), buf = Store.buf(id);
     if(b.nfc) return;                              /* the act passes itself on the last scan */
     if(buf.coolUntil > Date.now()) return;
-    if(buf.picks.length !== b.answer.length) return;
-    if(Logic.validate(b, buf.picks)){
+    if(b.text){ if(!Logic.norm(buf.text)) return; }
+    else if(buf.picks.length !== b.answer.length) return;
+    if(Logic.validate(b, b.text ? buf.text : buf.picks)){
       this.earnBadge(id);
     } else {
       buf.strikes = (buf.strikes||0) + 1;
