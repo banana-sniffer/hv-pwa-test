@@ -360,7 +360,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.17",
+  version: "mock-2.18",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -368,14 +368,16 @@ const CONFIG = {
   badges: [
     { id:"knot",  name:"Knot Tying",   icon:"knot",    done:"JUL 1987", patch:"#d0734a", icontint:"#241a10",
       flavor:"Eight hitches, one rope, no slack." },
-    { id:"orient", name:"Orienteering", icon:"compass", trial:true, shipped:true, patch:"#7da3b8", icontint:"#241a10",
-      intro:"The trail pays out at four heights. Name the four points you sighted on the way up.",
+    { id:"orient", name:"Orienteering", icon:"compass", trial:true, text:true, fields:4, shipped:true, patch:"#7da3b8", icontint:"#241a10",
+      intro:"The trail paid out at four heights. Name the four points you sighted on the way up.",
       flavor:"Found every control before the horn.",
-      /* Map Reading: banknote value = elevation on the trail map; the landmark at that height is the one sighted.
-         Live: 1 ft FOOTBRIDGE · 20 ft FIRST CAIRN · 100 ft OLD FORD · 2000 ft BALD SUMMIT. Decoys are other map landmarks. */
-      items:["Footbridge","Radio Mast","First Cairn","North Cairn","Old Ford",
-             "Split Boulder","Lookout Rock","Bald Summit","Twin Pines","Cold Spring"],
-      answer:["Footbridge","First Cairn","Old Ford","Bald Summit"] },
+      /* Map Reading: banknote value = elevation on the trail map; the ciphered name at that height is the point sighted.
+         Four typed answers, any order, matched as a set (case/spacing ignored). Aliases per point below. */
+      answerSets:[ ["FOOTBRIDGE","THE FOOTBRIDGE","FOOT BRIDGE"],
+                   ["FIRST CAIRN","THE FIRST CAIRN"],
+                   ["OLD FORD","THE OLD FORD"],
+                   ["BALD SUMMIT","THE BALD SUMMIT"] ],
+      answer:["FOOTBRIDGE","FIRST CAIRN","OLD FORD","BALD SUMMIT"] },
     { id:"star",  name:"Stargazing",   icon:"star",    done:"JUN 1994", patch:"#dca83f", icontint:"#241a10",
       flavor:"Named the summer sky from memory." },
     { id:"aid",   name:"First Aid",    icon:"aid",     done:"JUL 1996", patch:"#f6f0d2", icontint:"#b85c4a", stitch:"#b85c4a",
@@ -417,6 +419,15 @@ const Logic = {
   norm(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); },
   validate(badge, picks){
     if(!badge || !badge.answer) return false;
+    if(badge.text && badge.answerSets){
+      const ins = (Array.isArray(picks)?picks:[picks]).map(p=>this.norm(p)).filter(Boolean);
+      if(ins.length !== badge.answerSets.length) return false;
+      const used = new Set();
+      return ins.every(inp => {
+        const i = badge.answerSets.findIndex((set,k)=>!used.has(k) && set.some(a=>this.norm(a)===inp));
+        if(i < 0) return false; used.add(i); return true;
+      });
+    }
     if(badge.text){ const n = this.norm(picks); return !!n && badge.answer.some(a=>this.norm(a)===n); }
     if(picks.length !== badge.answer.length) return false;
     if(badge.nfc){ return this.orderPrefixOk(badge, picks); }  /* the act runs IN ORDER (any start if cyclic) */
@@ -670,7 +681,8 @@ const App = {
   /* ---------- typed-answer trial (Book Study) ---------- */
   showTextTrial(b){
     this.openTrial = b.id;
-    document.getElementById("tKicker").textContent = "BADGE TRIAL · SOLVE WHAT IS HIDDEN";
+    const nf = b.fields || 1;
+    document.getElementById("tKicker").textContent = nf > 1 ? "BADGE TRIAL · NAME THE "+({2:"TWO",3:"THREE",4:"FOUR",5:"FIVE"}[nf]||nf) : "BADGE TRIAL · SOLVE WHAT IS HIDDEN";
     document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
     document.getElementById("tIntro").textContent = b.intro;
     const buf = Store.buf(b.id);
@@ -681,17 +693,27 @@ const App = {
     } else betaEl.classList.remove("show");
     const grid = document.getElementById("tGrid");
     grid.classList.remove("beta-on");
-    grid.innerHTML =
-      '<div class="mwhead">YOUR ANSWER</div>'+
-      '<input class="tinput" id="tText" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="answer">';
-    const inp = document.getElementById("tText");
-    inp.value = buf.text || "";
-    inp.addEventListener("input", ()=>{
-      buf.text = inp.value; Store.save();
-      document.getElementById("tReject").classList.remove("show");
-      this.renderTrialState();
+    if(!Array.isArray(buf.texts)) buf.texts = [];
+    let html = '<div class="mwhead">'+(nf>1 ? "YOUR ANSWERS — any order" : "YOUR ANSWER")+'</div>';
+    for(let i=0;i<nf;i++){
+      html += '<input class="tinput" id="tText'+i+'" data-i="'+i+'" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="answer"'+(nf>1?' style="margin-bottom:8px"':'')+'>';
+    }
+    grid.innerHTML = html;
+    const inputs = [...grid.querySelectorAll(".tinput")];
+    inputs.forEach((inp,i)=>{
+      inp.value = nf>1 ? (buf.texts[i]||"") : (buf.text||"");
+      inp.addEventListener("input", ()=>{
+        if(nf>1){ buf.texts[i] = inp.value; } else { buf.text = inp.value; }
+        Store.save();
+        document.getElementById("tReject").classList.remove("show");
+        this.renderTrialState();
+      });
+      inp.addEventListener("keydown", e=>{
+        if(e.key !== "Enter") return;
+        e.preventDefault();
+        if(i < nf-1){ inputs[i+1].focus(); } else { this.confirm(); }
+      });
     });
-    inp.addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); this.confirm(); } });
     document.getElementById("tReject").classList.remove("show");
     this.renderTrialState();
     document.getElementById("trialOvl").classList.add("show");
@@ -857,11 +879,15 @@ const App = {
     const btn = document.getElementById("tConfirm");
     btn.style.display = b.nfc ? "none" : "";
     if(b.text){
-      const has = !!Logic.norm(buf.text);
-      document.getElementById("tPicked").innerHTML = has ? "<b>one</b> answer, ready" : "type your answer";
+      const nf = b.fields || 1;
+      const filled = nf>1 ? (buf.texts||[]).filter(t=>Logic.norm(t)).length : (Logic.norm(buf.text)?1:0);
+      const has = filled === nf;
+      document.getElementById("tPicked").innerHTML = nf>1
+        ? "<b>"+filled+"</b> of "+nf+" named"
+        : (has ? "<b>one</b> answer, ready" : "type your answer");
       btn.disabled = cooling || rejected || !has;
-      btn.textContent = cooling ? "COOLING" : "STAMP IT";
-      const inp = document.getElementById("tText"); if(inp) inp.disabled = cooling;
+      btn.textContent = cooling ? "COOLING" : (has ? "STAMP IT" : "NAME "+(nf-filled)+" MORE");
+      document.querySelectorAll("#tGrid .tinput").forEach(inp=>{ inp.disabled = cooling; });
     } else {
       document.getElementById("tPicked").innerHTML = b.nfc
         ? "<b>"+n+"</b> of "+need+" in order"
@@ -903,9 +929,10 @@ const App = {
     const b = Logic.byId(id), buf = Store.buf(id);
     if(b.nfc) return;                              /* the act passes itself on the last scan */
     if(buf.coolUntil > Date.now()) return;
-    if(b.text){ if(!Logic.norm(buf.text)) return; }
+    const nf = b.fields || 1;
+    if(b.text){ if(nf>1 ? (buf.texts||[]).filter(t=>Logic.norm(t)).length !== nf : !Logic.norm(buf.text)) return; }
     else if(buf.picks.length !== b.answer.length) return;
-    if(Logic.validate(b, b.text ? buf.text : buf.picks)){
+    if(Logic.validate(b, b.text ? (nf>1 ? buf.texts : buf.text) : buf.picks)){
       this.earnBadge(id);
     } else {
       buf.strikes = (buf.strikes||0) + 1;
