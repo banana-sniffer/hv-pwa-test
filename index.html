@@ -360,7 +360,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.14",
+  version: "mock-2.15",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -378,7 +378,7 @@ const CONFIG = {
       flavor:"Crossed the lake against the wind." },
     { id:"carve", name:"Woodcarving",  icon:"carve",   done:"JUN 2001", patch:"#8a5560", icontint:"#f6f0d2",
       flavor:"One block, one blade, steady hands." },
-    { id:"bird", name:"Bird Study", icon:"bird", trial:true, patch:"#5d9668", icontint:"#241a10",
+    { id:"bird", name:"Bird Study", icon:"bird", trial:true, shipped:true, patch:"#5d9668", icontint:"#241a10",
       intro:"Tune the camp radio to 97.1 — five calls play on repeat. Ten birds are listed below. Mark the five you hear; the machine already knows their voices.",
       flavor:"Knew five voices in the dark.",
       /* loop order on the speaker: radio host → Barred Owl → Black-capped Chickadee → Green Heron → Mourning Dove → Shoebill Stork */
@@ -642,14 +642,15 @@ const App = {
     const buf = Store.buf(id);
     buf.picks = buf.picks.filter(p=>b.items.includes(p));
     const grid = document.getElementById("tGrid");
+    const showBeta = CONFIG.beta && !b.shipped;
     grid.innerHTML = b.items.map(it=>{
       const on = buf.picks.includes(it);
-      const dot = (CONFIG.beta && b.answer.includes(it)) ? '<span class="betadot"></span>' : '';
+      const dot = (showBeta && b.answer.includes(it)) ? '<span class="betadot"></span>' : '';
       return '<div class="tile'+(on?" sel":"")+'" data-item="'+esc(it)+'">'+dot+esc(it)+'</div>';
     }).join("");
-    grid.classList.toggle("beta-on", !!CONFIG.beta);
+    grid.classList.toggle("beta-on", showBeta);
     const betaEl = document.getElementById("tBeta");
-    if(CONFIG.beta){
+    if(showBeta){
       betaEl.innerHTML = '<b>BETA KEY</b> · ' + b.answer.map(esc).join(" · ");
       betaEl.classList.add("show");
     } else betaEl.classList.remove("show");
