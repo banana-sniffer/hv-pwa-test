@@ -360,7 +360,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.13",
+  version: "mock-2.14",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -381,9 +381,10 @@ const CONFIG = {
     { id:"bird", name:"Bird Study", icon:"bird", trial:true, patch:"#5d9668", icontint:"#241a10",
       intro:"Tune the camp radio to 97.1 — five calls play on repeat. Ten birds are listed below. Mark the five you hear; the machine already knows their voices.",
       flavor:"Knew five voices in the dark.",
-      items:["Barred Owl","Great Horned Owl","Eastern Phoebe","Chickadee","Carolina Wren",
-             "Cardinal","Green Heron","Mourning Dove","Blue Jay","Downy Woodpecker"],
-      answer:["Barred Owl","Chickadee","Carolina Wren","Green Heron","Mourning Dove"] },
+      /* loop order on the speaker: radio host → Barred Owl → Black-capped Chickadee → Green Heron → Mourning Dove → Shoebill Stork */
+      items:["Barred Owl","Great Horned Owl","Eastern Phoebe","Black-capped Chickadee","Carolina Wren",
+             "Cardinal","Green Heron","Mourning Dove","Blue Jay","Shoebill Stork"],
+      answer:["Barred Owl","Black-capped Chickadee","Green Heron","Mourning Dove","Shoebill Stork"] },
     { id:"spice", name:"Camp Cook", icon:"spice", trial:true, patch:"#d0734a", icontint:"#241a10",
       intro:"The rub for the Hollow Trail supper takes exactly five spices. The jars are open. Trust your nose and mark the five that belong.",
       flavor:"Named the rub blindfolded.",
