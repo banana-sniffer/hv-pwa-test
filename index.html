@@ -237,6 +237,8 @@
   .gm button:hover{border-color:var(--must);color:var(--cream)}
 
   /* --- Magic (scattered deck) trial --- */
+  .grid.stack{display:block}
+  .tfields{display:flex;flex-direction:column;gap:10px}
   .tinput{width:100%;box-sizing:border-box;font-family:var(--mono,ui-monospace,monospace);font-size:22px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:14px 12px;border:2px solid #4a4032;border-radius:10px;background:#f6f0d2;color:#241a10;outline:none}
   .tinput:focus{border-color:#dca83f}
   .tinput:disabled{opacity:.5}
@@ -360,7 +362,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.18",
+  version: "mock-2.19",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -647,6 +649,7 @@ const App = {
     const buf = Store.buf(id);
     buf.picks = buf.picks.filter(p=>b.items.includes(p));
     const grid = document.getElementById("tGrid");
+    grid.classList.remove("stack");
     const showBeta = CONFIG.beta && !b.shipped;
     grid.innerHTML = b.items.map(it=>{
       const on = buf.picks.includes(it);
@@ -694,11 +697,12 @@ const App = {
     const grid = document.getElementById("tGrid");
     grid.classList.remove("beta-on");
     if(!Array.isArray(buf.texts)) buf.texts = [];
-    let html = '<div class="mwhead">'+(nf>1 ? "YOUR ANSWERS — any order" : "YOUR ANSWER")+'</div>';
+    grid.classList.add("stack");
+    let html = '<div class="mwhead">'+(nf>1 ? "YOUR ANSWERS — any order" : "YOUR ANSWER")+'</div><div class="tfields">';
     for(let i=0;i<nf;i++){
-      html += '<input class="tinput" id="tText'+i+'" data-i="'+i+'" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="answer"'+(nf>1?' style="margin-bottom:8px"':'')+'>';
+      html += '<input class="tinput" id="tText'+i+'" data-i="'+i+'" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="answer">';
     }
-    grid.innerHTML = html;
+    grid.innerHTML = html + '</div>';
     const inputs = [...grid.querySelectorAll(".tinput")];
     inputs.forEach((inp,i)=>{
       inp.value = nf>1 ? (buf.texts[i]||"") : (buf.text||"");
@@ -740,6 +744,7 @@ const App = {
     } else betaEl.classList.remove("show");
     const grid = document.getElementById("tGrid");
     grid.classList.toggle("beta-on", devSim);
+    grid.classList.add("stack");
     grid.innerHTML =
       '<div class="mbanner" id="mBanner">WAND ASLEEP</div>'+
       '<div class="mlast" id="mLast">Pass the unit over a card.</div>'+
