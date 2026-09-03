@@ -360,7 +360,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.16",
+  version: "mock-2.17",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -368,8 +368,14 @@ const CONFIG = {
   badges: [
     { id:"knot",  name:"Knot Tying",   icon:"knot",    done:"JUL 1987", patch:"#d0734a", icontint:"#241a10",
       flavor:"Eight hitches, one rope, no slack." },
-    { id:"orient",name:"Orienteering", icon:"compass", done:"AUG 1989", patch:"#7da3b8", icontint:"#241a10",
-      flavor:"Found every control before the horn." },
+    { id:"orient", name:"Orienteering", icon:"compass", trial:true, shipped:true, patch:"#7da3b8", icontint:"#241a10",
+      intro:"The trail pays out at four heights. Name the four points you sighted on the way up.",
+      flavor:"Found every control before the horn.",
+      /* Map Reading: banknote value = elevation on the trail map; the landmark at that height is the one sighted.
+         Live: 1 ft FOOTBRIDGE · 20 ft FIRST CAIRN · 100 ft OLD FORD · 2000 ft BALD SUMMIT. Decoys are other map landmarks. */
+      items:["Footbridge","Radio Mast","First Cairn","North Cairn","Old Ford",
+             "Split Boulder","Lookout Rock","Bald Summit","Twin Pines","Cold Spring"],
+      answer:["Footbridge","First Cairn","Old Ford","Bald Summit"] },
     { id:"star",  name:"Stargazing",   icon:"star",    done:"JUN 1994", patch:"#dca83f", icontint:"#241a10",
       flavor:"Named the summer sky from memory." },
     { id:"aid",   name:"First Aid",    icon:"aid",     done:"JUL 1996", patch:"#f6f0d2", icontint:"#b85c4a", stitch:"#b85c4a",
@@ -623,7 +629,7 @@ const App = {
     if(b.nfc){ this.showMagicTrial(b); return; }
     if(b.text){ this.showTextTrial(b); return; }
     this.openTrial = id;
-    const NUMW = {5:"FIVE",6:"SIX",7:"SEVEN",8:"EIGHT"};
+    const NUMW = {3:"THREE",4:"FOUR",5:"FIVE",6:"SIX",7:"SEVEN",8:"EIGHT"};
     document.getElementById("tKicker").textContent = "BADGE TRIAL · PICK THE "+(NUMW[b.answer.length]||b.answer.length);
     document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
     document.getElementById("tIntro").textContent = b.intro;
