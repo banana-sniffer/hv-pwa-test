@@ -240,7 +240,22 @@
   .grid.stack{display:block}
   .tfields{display:flex;flex-direction:column;gap:10px}
   .fstage{position:relative;height:230px;border:1.5px dashed #4a4032;border-radius:12px;background:#fbf7e6;display:flex;align-items:center;justify-content:center;overflow:hidden}
-  .fstage svg{height:190px;width:auto}
+  .fstage svg{height:200px;width:auto;position:relative;z-index:1}
+  .fog{position:absolute;inset:-20%;pointer-events:none;opacity:0;z-index:2;filter:blur(7px);
+       background:radial-gradient(ellipse 34% 40% at 20% 55%,rgba(240,236,224,.98),rgba(240,236,224,0) 70%),
+                  radial-gradient(ellipse 40% 44% at 55% 45%,rgba(236,232,220,.96),rgba(236,232,220,0) 70%),
+                  radial-gradient(ellipse 36% 42% at 85% 60%,rgba(242,238,226,.98),rgba(242,238,226,0) 70%),
+                  radial-gradient(ellipse 60% 30% at 50% 85%,rgba(238,234,222,.95),rgba(238,234,222,0) 70%)}
+  .fog.f2{filter:blur(12px);background:radial-gradient(ellipse 50% 50% at 35% 50%,rgba(232,228,214,.9),rgba(232,228,214,0) 70%),radial-gradient(ellipse 50% 50% at 75% 40%,rgba(232,228,214,.9),rgba(232,228,214,0) 70%)}
+  .fstage.fogged .fog{animation:fogin 2.2s cubic-bezier(.2,.7,.3,1) forwards}
+  .fstage.fogged .fog.f2{animation-duration:3s;animation-delay:.15s}
+  .fstage.clearing .fog{opacity:1;animation:fogout 1.3s ease-in forwards}
+  .fstage.clearing .fog.f2{animation-duration:1.6s}
+  @keyframes fogin{from{opacity:0;transform:translateX(-45%) scale(1.15)}to{opacity:1;transform:translateX(0) scale(1)}}
+  @keyframes fogout{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(55%) scale(1.1)}}
+  .fmsg{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.22em;color:#6f6553;line-height:1.7;opacity:0;animation:fmsgin .9s 1.6s forwards}
+  .fstage.clearing .fmsg{animation:fmsgin .6s .9s forwards}
+  @keyframes fmsgin{to{opacity:1}}
   .fstage .fidle{font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.22em;color:#8a7f6d;text-align:center;padding:0 18px;line-height:1.7}
   .fcount{position:absolute;right:10px;top:8px;font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.2em;color:#8a7f6d}
   .fbtn{margin-top:10px;width:100%;box-sizing:border-box;font-family:var(--mono,ui-monospace,monospace);font-size:12px;letter-spacing:.22em;padding:13px;border-radius:10px;border:1.5px solid #b85c4a;background:#f6f0d2;color:#241a10;font-weight:700;cursor:pointer}
@@ -370,7 +385,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.21",
+  version: "mock-2.22",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -391,11 +406,11 @@ const CONFIG = {
     { id:"star",  name:"Stargazing",   icon:"star",    done:"JUN 1994", patch:"#dca83f", icontint:"#241a10",
       flavor:"Named the summer sky from memory." },
     { id:"signal", name:"Signaling", icon:"flags", trial:true, flash:true, shipped:true, kicker:"BADGE TRIAL · READ THE FLAGS", patch:"#f6f0d2", icontint:"#b85c4a", stitch:"#b85c4a",
-      intro:"The flags are read across the lake every morning. Watch the far dock — five letters, then the fog. What did the camp say?",
+      intro:"",   /* no intro block on this trial — the stage speaks */
       flavor:"Read the flags before the fog came in.",
       /* Flag semaphore, flashed: five RANDOM letters each showing (never the same twice); the chart on the wall is the key.
          A wrong answer costs a strike AND the letters — the crew must watch a fresh signal. */
-      flashCount:5, flashOn:2000, flashOff:450, answer:["*"] },
+      flashCount:5, flashOn:1300, flashOff:300, unlimited:true, answer:["*"] },
     { id:"canoe", name:"Canoeing",     icon:"canoe",   done:"AUG 1998", patch:"#5d9668", icontint:"#241a10",
       flavor:"Crossed the lake against the wind." },
     { id:"carve", name:"Woodcarving",  icon:"carve",   done:"JUN 2001", patch:"#8a5560", icontint:"#f6f0d2",
@@ -450,7 +465,7 @@ const Logic = {
               '<path d="M-8 -8 L8 -8 L8 8 Z" fill="#e8b12c"/><path d="M-8 -8 L8 8 L-8 8 Z" fill="#c0392b"/>'+
               '<rect x="-8" y="-8" width="16" height="16" fill="none" stroke="#111" stroke-width="1.2"/></g>';
     }
-    return '<svg viewBox="0 0 120 124" xmlns="http://www.w3.org/2000/svg">'+
+    return '<svg viewBox="-8 -14 136 140" xmlns="http://www.w3.org/2000/svg">'+
       '<circle cx="60" cy="22" r="9" fill="#111"/><rect x="50" y="34" width="20" height="44" rx="5" fill="#111"/>'+
       '<line x1="55" y1="77" x2="50" y2="104" stroke="#111" stroke-width="5" stroke-linecap="round"/><line x1="65" y1="77" x2="70" y2="104" stroke="#111" stroke-width="5" stroke-linecap="round"/>'+
       arms+'</svg>';
@@ -767,15 +782,15 @@ const App = {
     this.openTrial = b.id;
     document.getElementById("tKicker").textContent = b.kicker || "BADGE TRIAL · READ THE FLAGS";
     document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
-    document.getElementById("tIntro").textContent = b.intro;
+    document.getElementById("tIntro").style.display = "none";
     document.getElementById("tBeta").classList.remove("show");
     const grid = document.getElementById("tGrid");
     grid.classList.remove("beta-on"); grid.classList.add("stack");
     grid.innerHTML = '<div class="mwhead">THE FAR DOCK</div>'+
       '<div class="fstage" id="fStage"></div>'+
       '<button class="fbtn" id="fWatch"></button>'+
-      '<div class="fread" id="fRead"><div class="mwhead">WHAT DID THE CAMP SAY?</div><div class="tfields">'+
-      '<input class="tinput" id="tText0" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="'+(b.flashCount||5)+'" placeholder="'+(b.flashCount||5)+' letters"></div></div>';
+      '<div class="fread" id="fRead"><div class="mwhead">LOG THE SIGNAL — '+(b.flashCount||5)+' LETTERS, AS RECEIVED</div><div class="tfields">'+
+      '<input class="tinput" id="tText0" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="'+(b.flashCount||5)+'" placeholder="as received"></div></div>';
     const buf = Store.buf(b.id);
     const inp = document.getElementById("tText0");
     inp.value = buf.text || "";
@@ -795,14 +810,17 @@ const App = {
     const cooling = buf.coolUntil > Date.now();
     if(this._flashing) return;
     if(buf.shown && buf.seq){
-      stage.innerHTML = '<div class="fidle">THE FOG CAME IN.<br>five letters were sent.</div>';
+      stage.className = "fstage fogged";
+      stage.innerHTML = '<div class="fog"></div><div class="fog f2"></div><div class="fmsg">THE FOG CAME IN.<br>'+seqWord(b)+' were sent.</div>';
       btn.textContent = "SIGNAL AGAIN · NEW LETTERS";
       read.style.display = "";
     } else {
+      stage.className = "fstage";
       stage.innerHTML = '<div class="fidle">the dock is empty.<br>watch, and the camp will signal.</div>';
       btn.textContent = "WATCH THE DOCK";
       read.style.display = "none";
     }
+    function seqWord(b){ return ({3:"three",4:"four",5:"five",6:"six",7:"seven"}[b.flashCount||5]||b.flashCount)+" letters"; }
     btn.disabled = cooling;
   },
   playFlash(b){
@@ -819,11 +837,19 @@ const App = {
     const step = (i)=>{
       if(this._flashToken !== token || this.openTrial !== b.id) return;
       if(i >= seq.length){
-        this._flashing = false; buf.shown = true; Store.save();
-        this.renderFlash(b); this.renderTrialState();
-        setTimeout(()=>{ const f = document.getElementById("tText0"); if(f && this.openTrial===b.id) f.focus(); }, 50);
+        /* the fog rolls in over the last figure, then the log opens */
+        stage.className = "fstage fogged";
+        stage.innerHTML = '<div class="fcount">'+seq.length+' OF '+seq.length+'</div>'+Logic.semaSVG(seq[seq.length-1])+
+          '<div class="fog"></div><div class="fog f2"></div><div class="fmsg">THE FOG CAME IN.</div>';
+        setTimeout(()=>{
+          if(this._flashToken !== token) return;
+          this._flashing = false; buf.shown = true; Store.save();
+          this.renderFlash(b); this.renderTrialState();
+          setTimeout(()=>{ const f = document.getElementById("tText0"); if(f && this.openTrial===b.id) f.focus(); }, 50);
+        }, 2600);
         return;
       }
+      stage.className = "fstage";
       stage.innerHTML = '<div class="fcount">'+(i+1)+' OF '+seq.length+'</div>'+Logic.semaSVG(seq[i]);
       setTimeout(()=>{
         if(this._flashToken !== token) return;
@@ -831,8 +857,10 @@ const App = {
         setTimeout(()=>step(i+1), off);
       }, on);
     };
-    stage.innerHTML = '<div class="fidle">he is walking out.</div>';
-    setTimeout(()=>step(0), 900);
+    const wasFogged = stage.classList.contains("fogged");
+    stage.className = "fstage clearing";
+    stage.innerHTML = (wasFogged ? '<div class="fog"></div><div class="fog f2"></div>' : '')+'<div class="fmsg">the fog lifts.<br>he is walking out.</div>';
+    setTimeout(()=>step(0), wasFogged ? 2100 : 1200);
     this.renderTrialState();
   },
 
@@ -1061,17 +1089,19 @@ const App = {
     if(Logic.validate(b, b.flash ? {typed:buf.text, seq:buf.seq} : b.text ? (nf>1 ? buf.texts : buf.text) : buf.picks)){
       this.earnBadge(id);
     } else {
-      buf.strikes = (buf.strikes||0) + 1;
-      if(buf.strikes >= CONFIG.strikesBeforeCooldown){
-        buf.coolUntil = Date.now() + CONFIG.cooldownSeconds*1000;
+      if(!b.unlimited){
+        buf.strikes = (buf.strikes||0) + 1;
+        if(buf.strikes >= CONFIG.strikesBeforeCooldown){
+          buf.coolUntil = Date.now() + CONFIG.cooldownSeconds*1000;
+        }
       }
       Store.save();
       if(navigator.vibrate) try{ navigator.vibrate(60); }catch(_){}
       const rej = document.getElementById("tReject");
-      const why = b.flash ? "The fog took it. The camp will not say the same thing twice — watch the dock again."
+      const why = b.flash ? "That is not what was sent. The camp never repeats itself — watch the dock again."
                           : "The machine is unmoved. Your picks stand — change your mind, not your luck.";
       if(b.flash){ buf.seq = null; buf.shown = false; buf.text = ""; const f = document.getElementById("tText0"); if(f) f.value = ""; this.renderFlash(b); }
-      rej.innerHTML = '<span class="try">Attempt '+Math.min(buf.strikes,CONFIG.strikesBeforeCooldown)+' of '+CONFIG.strikesBeforeCooldown+'</span>'+
+      rej.innerHTML = (b.unlimited ? '<span class="try">Not received</span>' : '<span class="try">Attempt '+Math.min(buf.strikes,CONFIG.strikesBeforeCooldown)+' of '+CONFIG.strikesBeforeCooldown+'</span>')+
         '<span class="why">'+why+'</span>';
       rej.classList.add("show");
       const sheet = document.getElementById("trialSheet");
@@ -1084,6 +1114,7 @@ const App = {
   closeTrial(){
     this.openTrial = null;
     this._flashing = false; this._flashToken = (this._flashToken||0)+1;
+    document.getElementById("tIntro").style.display = "";
     if(this._nfcCtl){ try{ this._nfcCtl.abort(); }catch(_){} this._nfcCtl = null; }
     document.getElementById("trialOvl").classList.remove("show");
     document.body.style.overflow = "";
