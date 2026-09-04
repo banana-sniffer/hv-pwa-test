@@ -241,21 +241,6 @@
   .tfields{display:flex;flex-direction:column;gap:10px}
   .fstage{position:relative;height:230px;border:1.5px dashed #4a4032;border-radius:12px;background:#fbf7e6;display:flex;align-items:center;justify-content:center;overflow:hidden}
   .fstage svg{height:200px;width:auto;position:relative;z-index:1}
-  .fog{position:absolute;inset:-20%;pointer-events:none;opacity:0;z-index:2;filter:blur(7px);
-       background:radial-gradient(ellipse 34% 40% at 20% 55%,rgba(240,236,224,.98),rgba(240,236,224,0) 70%),
-                  radial-gradient(ellipse 40% 44% at 55% 45%,rgba(236,232,220,.96),rgba(236,232,220,0) 70%),
-                  radial-gradient(ellipse 36% 42% at 85% 60%,rgba(242,238,226,.98),rgba(242,238,226,0) 70%),
-                  radial-gradient(ellipse 60% 30% at 50% 85%,rgba(238,234,222,.95),rgba(238,234,222,0) 70%)}
-  .fog.f2{filter:blur(12px);background:radial-gradient(ellipse 50% 50% at 35% 50%,rgba(232,228,214,.9),rgba(232,228,214,0) 70%),radial-gradient(ellipse 50% 50% at 75% 40%,rgba(232,228,214,.9),rgba(232,228,214,0) 70%)}
-  .fstage.fogged .fog{animation:fogin 2.2s cubic-bezier(.2,.7,.3,1) forwards}
-  .fstage.fogged .fog.f2{animation-duration:3s;animation-delay:.15s}
-  .fstage.clearing .fog{opacity:1;animation:fogout 1.3s ease-in forwards}
-  .fstage.clearing .fog.f2{animation-duration:1.6s}
-  @keyframes fogin{from{opacity:0;transform:translateX(-45%) scale(1.15)}to{opacity:1;transform:translateX(0) scale(1)}}
-  @keyframes fogout{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(55%) scale(1.1)}}
-  .fmsg{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.22em;color:#6f6553;line-height:1.7;opacity:0;animation:fmsgin .9s 1.6s forwards}
-  .fstage.clearing .fmsg{animation:fmsgin .6s .9s forwards}
-  @keyframes fmsgin{to{opacity:1}}
   .fstage .fidle{font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.22em;color:#8a7f6d;text-align:center;padding:0 18px;line-height:1.7}
   .fcount{position:absolute;right:10px;top:8px;font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.2em;color:#8a7f6d}
   .fbtn{margin-top:10px;width:100%;box-sizing:border-box;font-family:var(--mono,ui-monospace,monospace);font-size:12px;letter-spacing:.22em;padding:13px;border-radius:10px;border:1.5px solid #b85c4a;background:#f6f0d2;color:#241a10;font-weight:700;cursor:pointer}
@@ -385,7 +370,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.22",
+  version: "mock-2.23",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -410,7 +395,7 @@ const CONFIG = {
       flavor:"Read the flags before the fog came in.",
       /* Flag semaphore, flashed: five RANDOM letters each showing (never the same twice); the chart on the wall is the key.
          A wrong answer costs a strike AND the letters — the crew must watch a fresh signal. */
-      flashCount:5, flashOn:1300, flashOff:300, unlimited:true, answer:["*"] },
+      flashCount:5, flashOn:900, flashOff:200, unlimited:true, answer:["*"] },
     { id:"canoe", name:"Canoeing",     icon:"canoe",   done:"AUG 1998", patch:"#5d9668", icontint:"#241a10",
       flavor:"Crossed the lake against the wind." },
     { id:"carve", name:"Woodcarving",  icon:"carve",   done:"JUN 2001", patch:"#8a5560", icontint:"#f6f0d2",
@@ -810,8 +795,8 @@ const App = {
     const cooling = buf.coolUntil > Date.now();
     if(this._flashing) return;
     if(buf.shown && buf.seq){
-      stage.className = "fstage fogged";
-      stage.innerHTML = '<div class="fog"></div><div class="fog f2"></div><div class="fmsg">THE FOG CAME IN.<br>'+seqWord(b)+' were sent.</div>';
+      stage.className = "fstage";
+      stage.innerHTML = '<div class="fidle">THE FOG CAME IN.<br>'+seqWord(b)+' were sent.</div>';
       btn.textContent = "SIGNAL AGAIN · NEW LETTERS";
       read.style.display = "";
     } else {
@@ -837,16 +822,9 @@ const App = {
     const step = (i)=>{
       if(this._flashToken !== token || this.openTrial !== b.id) return;
       if(i >= seq.length){
-        /* the fog rolls in over the last figure, then the log opens */
-        stage.className = "fstage fogged";
-        stage.innerHTML = '<div class="fcount">'+seq.length+' OF '+seq.length+'</div>'+Logic.semaSVG(seq[seq.length-1])+
-          '<div class="fog"></div><div class="fog f2"></div><div class="fmsg">THE FOG CAME IN.</div>';
-        setTimeout(()=>{
-          if(this._flashToken !== token) return;
-          this._flashing = false; buf.shown = true; Store.save();
-          this.renderFlash(b); this.renderTrialState();
-          setTimeout(()=>{ const f = document.getElementById("tText0"); if(f && this.openTrial===b.id) f.focus(); }, 50);
-        }, 2600);
+        this._flashing = false; buf.shown = true; Store.save();
+        this.renderFlash(b); this.renderTrialState();
+        setTimeout(()=>{ const f = document.getElementById("tText0"); if(f && this.openTrial===b.id) f.focus(); }, 50);
         return;
       }
       stage.className = "fstage";
@@ -857,10 +835,9 @@ const App = {
         setTimeout(()=>step(i+1), off);
       }, on);
     };
-    const wasFogged = stage.classList.contains("fogged");
-    stage.className = "fstage clearing";
-    stage.innerHTML = (wasFogged ? '<div class="fog"></div><div class="fog f2"></div>' : '')+'<div class="fmsg">the fog lifts.<br>he is walking out.</div>';
-    setTimeout(()=>step(0), wasFogged ? 2100 : 1200);
+    stage.className = "fstage";
+    stage.innerHTML = '<div class="fidle">he is walking out.</div>';
+    setTimeout(()=>step(0), 700);
     this.renderTrialState();
   },
 
