@@ -239,6 +239,13 @@
   /* --- Magic (scattered deck) trial --- */
   .grid.stack{display:block}
   .tfields{display:flex;flex-direction:column;gap:10px}
+  .fstage{position:relative;height:230px;border:1.5px dashed #4a4032;border-radius:12px;background:#fbf7e6;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .fstage svg{height:190px;width:auto}
+  .fstage .fidle{font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.22em;color:#8a7f6d;text-align:center;padding:0 18px;line-height:1.7}
+  .fcount{position:absolute;right:10px;top:8px;font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.2em;color:#8a7f6d}
+  .fbtn{margin-top:10px;width:100%;box-sizing:border-box;font-family:var(--mono,ui-monospace,monospace);font-size:12px;letter-spacing:.22em;padding:13px;border-radius:10px;border:1.5px solid #b85c4a;background:#f6f0d2;color:#241a10;font-weight:700;cursor:pointer}
+  .fbtn:disabled{opacity:.4}
+  .fread{margin-top:12px}
   .tinput{width:100%;box-sizing:border-box;font-family:var(--mono,ui-monospace,monospace);font-size:22px;letter-spacing:.18em;text-transform:uppercase;text-align:center;padding:14px 12px;border:2px solid #4a4032;border-radius:10px;background:#f6f0d2;color:#241a10;outline:none}
   .tinput:focus{border-color:#dca83f}
   .tinput:disabled{opacity:.5}
@@ -363,7 +370,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.20",
+  version: "mock-2.21",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -383,11 +390,12 @@ const CONFIG = {
       answer:["FOOTBRIDGE","FIRST CAIRN","OLD FORD","BALD SUMMIT"] },
     { id:"star",  name:"Stargazing",   icon:"star",    done:"JUN 1994", patch:"#dca83f", icontint:"#241a10",
       flavor:"Named the summer sky from memory." },
-    { id:"signal", name:"Signaling", icon:"flags", trial:true, text:true, shipped:true, kicker:"BADGE TRIAL · READ THE FLAGS", patch:"#f6f0d2", icontint:"#b85c4a", stitch:"#b85c4a",
-      intro:"The flags were read across the lake every morning. Read them now — what did the camp say?",
+    { id:"signal", name:"Signaling", icon:"flags", trial:true, flash:true, shipped:true, kicker:"BADGE TRIAL · READ THE FLAGS", patch:"#f6f0d2", icontint:"#b85c4a", stitch:"#b85c4a",
+      intro:"The flags are read across the lake every morning. Watch the far dock — five letters, then the fog. What did the camp say?",
       flavor:"Read the flags before the fog came in.",
-      /* Flag semaphore: the practice cards on the wall spell the word; the chart beside them is the key. */
-      answer:["EMBER","EMBERS","THE EMBER"] },
+      /* Flag semaphore, flashed: five RANDOM letters each showing (never the same twice); the chart on the wall is the key.
+         A wrong answer costs a strike AND the letters — the crew must watch a fresh signal. */
+      flashCount:5, flashOn:2000, flashOff:450, answer:["*"] },
     { id:"canoe", name:"Canoeing",     icon:"canoe",   done:"AUG 1998", patch:"#5d9668", icontint:"#241a10",
       flavor:"Crossed the lake against the wind." },
     { id:"carve", name:"Woodcarving",  icon:"carve",   done:"JUN 2001", patch:"#8a5560", icontint:"#f6f0d2",
@@ -423,8 +431,33 @@ const Logic = {
   byId(id){ return CONFIG.badges.find(b=>b.id===id) || null; },
   trials(){ return CONFIG.badges.filter(b=>b.trial); },
   norm(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); },
+  /* flag semaphore, receiver's view (0 = right, 90 = up, 180 = left, 270 = down) — same convention as the wall chart */
+  SEMA:{A:[225,270],B:[180,270],C:[135,270],D:[90,270],E:[45,270],F:[0,270],G:[270,315],H:[180,225],I:[135,225],J:[0,90],K:[90,225],L:[45,225],M:[0,225],N:[225,315],O:[135,180],P:[90,180],Q:[45,180],R:[0,180],S:[180,315],T:[90,135],U:[45,135],V:[90,315],W:[0,45],X:[45,315],Y:[0,135],Z:[0,315]},
+  randomSignal(n){
+    const L = Object.keys(this.SEMA), out = [];
+    while(out.length < n){ const c = L[Math.floor(Math.random()*L.length)]; if(!out.includes(c)) out.push(c); }
+    return out.join("");
+  },
+  semaSVG(letter){
+    const angs = this.SEMA[letter] || [];
+    const sx = 60, sy = 40, L = 36;
+    let arms = "";
+    for(const a of angs){
+      const r = a*Math.PI/180, ex = sx + L*Math.cos(r), ey = sy - L*Math.sin(r);
+      const fx = ex + 9*Math.cos(r), fy = ey - 9*Math.sin(r);
+      arms += '<line x1="'+sx+'" y1="'+sy+'" x2="'+ex.toFixed(1)+'" y2="'+ey.toFixed(1)+'" stroke="#111" stroke-width="4" stroke-linecap="round"/>'+
+              '<g transform="translate('+fx.toFixed(1)+','+fy.toFixed(1)+') rotate('+(-a)+')">'+
+              '<path d="M-8 -8 L8 -8 L8 8 Z" fill="#e8b12c"/><path d="M-8 -8 L8 8 L-8 8 Z" fill="#c0392b"/>'+
+              '<rect x="-8" y="-8" width="16" height="16" fill="none" stroke="#111" stroke-width="1.2"/></g>';
+    }
+    return '<svg viewBox="0 0 120 124" xmlns="http://www.w3.org/2000/svg">'+
+      '<circle cx="60" cy="22" r="9" fill="#111"/><rect x="50" y="34" width="20" height="44" rx="5" fill="#111"/>'+
+      '<line x1="55" y1="77" x2="50" y2="104" stroke="#111" stroke-width="5" stroke-linecap="round"/><line x1="65" y1="77" x2="70" y2="104" stroke="#111" stroke-width="5" stroke-linecap="round"/>'+
+      arms+'</svg>';
+  },
   validate(badge, picks){
     if(!badge || !badge.answer) return false;
+    if(badge.flash){ const t = this.norm(picks && picks.typed), q = this.norm(picks && picks.seq); return !!q && t === q; }
     if(badge.text && badge.answerSets){
       const ins = (Array.isArray(picks)?picks:[picks]).map(p=>this.norm(p)).filter(Boolean);
       if(ins.length !== badge.answerSets.length) return false;
@@ -644,6 +677,7 @@ const App = {
     const b = Logic.byId(id);
     if(!b || !b.trial || Store.state.earned[id]) return;
     if(b.nfc){ this.showMagicTrial(b); return; }
+    if(b.flash){ this.showFlashTrial(b); return; }
     if(b.text){ this.showTextTrial(b); return; }
     this.openTrial = id;
     const NUMW = {3:"THREE",4:"FOUR",5:"FIVE",6:"SIX",7:"SEVEN",8:"EIGHT"};
@@ -726,6 +760,80 @@ const App = {
     this.renderTrialState();
     document.getElementById("trialOvl").classList.add("show");
     document.body.style.overflow = "hidden";
+  },
+
+  /* ---------- flashed semaphore (Signaling) ---------- */
+  showFlashTrial(b){
+    this.openTrial = b.id;
+    document.getElementById("tKicker").textContent = b.kicker || "BADGE TRIAL · READ THE FLAGS";
+    document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
+    document.getElementById("tIntro").textContent = b.intro;
+    document.getElementById("tBeta").classList.remove("show");
+    const grid = document.getElementById("tGrid");
+    grid.classList.remove("beta-on"); grid.classList.add("stack");
+    grid.innerHTML = '<div class="mwhead">THE FAR DOCK</div>'+
+      '<div class="fstage" id="fStage"></div>'+
+      '<button class="fbtn" id="fWatch"></button>'+
+      '<div class="fread" id="fRead"><div class="mwhead">WHAT DID THE CAMP SAY?</div><div class="tfields">'+
+      '<input class="tinput" id="tText0" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="'+(b.flashCount||5)+'" placeholder="'+(b.flashCount||5)+' letters"></div></div>';
+    const buf = Store.buf(b.id);
+    const inp = document.getElementById("tText0");
+    inp.value = buf.text || "";
+    inp.addEventListener("input", ()=>{ buf.text = inp.value; Store.save(); document.getElementById("tReject").classList.remove("show"); this.renderTrialState(); });
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); this.confirm(); } });
+    document.getElementById("fWatch").addEventListener("click", ()=>this.playFlash(b));
+    this._flashing = false;
+    this.renderFlash(b);
+    document.getElementById("tReject").classList.remove("show");
+    this.renderTrialState();
+    document.getElementById("trialOvl").classList.add("show");
+    document.body.style.overflow = "hidden";
+  },
+  renderFlash(b){
+    const buf = Store.buf(b.id), stage = document.getElementById("fStage"), btn = document.getElementById("fWatch"), read = document.getElementById("fRead");
+    if(!stage) return;
+    const cooling = buf.coolUntil > Date.now();
+    if(this._flashing) return;
+    if(buf.shown && buf.seq){
+      stage.innerHTML = '<div class="fidle">THE FOG CAME IN.<br>five letters were sent.</div>';
+      btn.textContent = "SIGNAL AGAIN · NEW LETTERS";
+      read.style.display = "";
+    } else {
+      stage.innerHTML = '<div class="fidle">the dock is empty.<br>watch, and the camp will signal.</div>';
+      btn.textContent = "WATCH THE DOCK";
+      read.style.display = "none";
+    }
+    btn.disabled = cooling;
+  },
+  playFlash(b){
+    const buf = Store.buf(b.id);
+    if(this._flashing || buf.coolUntil > Date.now()) return;
+    buf.seq = Logic.randomSignal(b.flashCount||5); buf.shown = false; buf.text = "";
+    Store.save();
+    const inp = document.getElementById("tText0"); if(inp) inp.value = "";
+    document.getElementById("tReject").classList.remove("show");
+    const stage = document.getElementById("fStage"), btn = document.getElementById("fWatch"), read = document.getElementById("fRead");
+    this._flashing = true; btn.disabled = true; read.style.display = "none";
+    const on = b.flashOn||2000, off = b.flashOff||450, seq = buf.seq;
+    const token = (this._flashToken = (this._flashToken||0)+1);
+    const step = (i)=>{
+      if(this._flashToken !== token || this.openTrial !== b.id) return;
+      if(i >= seq.length){
+        this._flashing = false; buf.shown = true; Store.save();
+        this.renderFlash(b); this.renderTrialState();
+        setTimeout(()=>{ const f = document.getElementById("tText0"); if(f && this.openTrial===b.id) f.focus(); }, 50);
+        return;
+      }
+      stage.innerHTML = '<div class="fcount">'+(i+1)+' OF '+seq.length+'</div>'+Logic.semaSVG(seq[i]);
+      setTimeout(()=>{
+        if(this._flashToken !== token) return;
+        stage.innerHTML = '<div class="fcount">'+(i+1)+' OF '+seq.length+'</div>';
+        setTimeout(()=>step(i+1), off);
+      }, on);
+    };
+    stage.innerHTML = '<div class="fidle">he is walking out.</div>';
+    setTimeout(()=>step(0), 900);
+    this.renderTrialState();
   },
 
   /* ---------- Magic (NFC scattered deck) ---------- */
@@ -887,7 +995,15 @@ const App = {
     const n = buf.picks.length, need = b.answer.length;
     const btn = document.getElementById("tConfirm");
     btn.style.display = b.nfc ? "none" : "";
-    if(b.text){
+    if(b.flash){
+      const want = b.flashCount||5, have = Logic.norm(buf.text).length;
+      const ready = !!buf.shown && !this._flashing && have === want;
+      document.getElementById("tPicked").innerHTML = buf.shown ? "<b>"+have+"</b> of "+want+" letters" : "watch the dock first";
+      btn.disabled = cooling || rejected || !ready;
+      btn.textContent = cooling ? "COOLING" : (ready ? "STAMP IT" : (buf.shown ? "TYPE "+(want-have)+" MORE" : "WATCH FIRST"));
+      const f = document.getElementById("tText0"); if(f) f.disabled = cooling || !buf.shown;
+      const w = document.getElementById("fWatch"); if(w && !this._flashing) w.disabled = cooling;
+    } else if(b.text){
       const nf = b.fields || 1;
       const filled = nf>1 ? (buf.texts||[]).filter(t=>Logic.norm(t)).length : (Logic.norm(buf.text)?1:0);
       const has = filled === nf;
@@ -939,9 +1055,10 @@ const App = {
     if(b.nfc) return;                              /* the act passes itself on the last scan */
     if(buf.coolUntil > Date.now()) return;
     const nf = b.fields || 1;
-    if(b.text){ if(nf>1 ? (buf.texts||[]).filter(t=>Logic.norm(t)).length !== nf : !Logic.norm(buf.text)) return; }
+    if(b.flash){ if(!buf.shown || this._flashing || Logic.norm(buf.text).length !== (b.flashCount||5)) return; }
+    else if(b.text){ if(nf>1 ? (buf.texts||[]).filter(t=>Logic.norm(t)).length !== nf : !Logic.norm(buf.text)) return; }
     else if(buf.picks.length !== b.answer.length) return;
-    if(Logic.validate(b, b.text ? (nf>1 ? buf.texts : buf.text) : buf.picks)){
+    if(Logic.validate(b, b.flash ? {typed:buf.text, seq:buf.seq} : b.text ? (nf>1 ? buf.texts : buf.text) : buf.picks)){
       this.earnBadge(id);
     } else {
       buf.strikes = (buf.strikes||0) + 1;
@@ -951,7 +1068,9 @@ const App = {
       Store.save();
       if(navigator.vibrate) try{ navigator.vibrate(60); }catch(_){}
       const rej = document.getElementById("tReject");
-      const why = "The machine is unmoved. Your picks stand — change your mind, not your luck.";
+      const why = b.flash ? "The fog took it. The camp will not say the same thing twice — watch the dock again."
+                          : "The machine is unmoved. Your picks stand — change your mind, not your luck.";
+      if(b.flash){ buf.seq = null; buf.shown = false; buf.text = ""; const f = document.getElementById("tText0"); if(f) f.value = ""; this.renderFlash(b); }
       rej.innerHTML = '<span class="try">Attempt '+Math.min(buf.strikes,CONFIG.strikesBeforeCooldown)+' of '+CONFIG.strikesBeforeCooldown+'</span>'+
         '<span class="why">'+why+'</span>';
       rej.classList.add("show");
@@ -964,6 +1083,7 @@ const App = {
 
   closeTrial(){
     this.openTrial = null;
+    this._flashing = false; this._flashToken = (this._flashToken||0)+1;
     if(this._nfcCtl){ try{ this._nfcCtl.abort(); }catch(_){} this._nfcCtl = null; }
     document.getElementById("trialOvl").classList.remove("show");
     document.body.style.overflow = "";
