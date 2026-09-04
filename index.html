@@ -289,7 +289,7 @@
     <span class="ver" id="verTag"></span>
   </div>
   <div class="progress" id="progress"></div>
-  <div class="hintline">Badges turn on their pins — give one a spin.</div>
+  <div class="hintline">Badges turn on their pins. Give one a spin.</div>
   <div class="comb" id="comb"></div>
 
   <div class="superwrap" id="superwrap">
@@ -337,7 +337,7 @@
     <div class="logo" id="cLogo"></div>
     <h2>The Heron's Seal</h2>
     <div class="sub2">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor<br>incididunt ut labore et dolore magna aliqua.</div>
-    <div class="sig">— Lorem ipsum · "dolor sit amet"</div>
+    <div class="sig">Lorem ipsum · "dolor sit amet"</div>
     <div style="margin-top:20px"><button class="btn" id="cClose">Close</button></div>
   </div>
 </div>
@@ -370,7 +370,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.23",
+  version: "mock-2.24",
   beta: true,        /* BETA: shows answers in trials + marks correct tiles. Set false for the real build. */
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
@@ -401,7 +401,7 @@ const CONFIG = {
     { id:"carve", name:"Woodcarving",  icon:"carve",   done:"JUN 2001", patch:"#8a5560", icontint:"#f6f0d2",
       flavor:"One block, one blade, steady hands." },
     { id:"bird", name:"Bird Study", icon:"bird", trial:true, shipped:true, patch:"#5d9668", icontint:"#241a10",
-      intro:"Tune the camp radio to 97.1 — five calls play on repeat. Ten birds are listed below. Mark the five you hear; the machine already knows their voices.",
+      intro:"Tune the camp radio to 97.1. Five calls play on repeat. Ten birds are listed below. Mark the five you hear; the machine already knows their voices.",
       flavor:"Knew five voices in the dark.",
       /* loop order on the speaker: radio host → Barred Owl → Black-capped Chickadee → Green Heron → Mourning Dove → Shoebill Stork */
       items:["Barred Owl","Great Horned Owl","Eastern Phoebe","Black-capped Chickadee","Carolina Wren",
@@ -414,7 +414,7 @@ const CONFIG = {
          the crew enters the riddle's ANSWER. Matching ignores case, spaces and punctuation. */
       answer:["SHADOW","SHADOWS","A SHADOW","MY SHADOW","YOUR SHADOW","THE SHADOW"] },
     { id:"magic", name:"Magic", icon:"magic", trial:true, nfc:true, cyclic:true, shipped:true, patch:"#8a5560", icontint:"#f6f0d2", stitch:"#dca83f",
-      intro:"Seven cards hang on the wall. Set them in Si Stebbins order and pass the wand over each in turn. Start anywhere — the order is the act.",
+      intro:"Seven cards hang on the wall. Set them in Si Stebbins order and pass the wand over each in turn. Start anywhere. The order is the act.",
       flavor:"The deck never forgot its order.",
       /* NFC tag payloads are hh:card.<code>. The seven ARE the Si Stebbins run (+3 rank, suits ♣♥♠♦):
          2♥ 5♠ 8♦ J♣ A♥ 4♠ 7♦. cyclic: any rotation of this order passes. A wrong scan resets the act. */
@@ -502,7 +502,7 @@ const Store = {
   },
   save(){
     try{ localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.state)); }
-    catch(e){ if(!this._warned){ this._warned = true; toast("Warning — progress is not saving on this device."); } }
+    catch(e){ if(!this._warned){ this._warned = true; toast("Warning: progress is not saving on this device."); } }
   },
   buf(id){
     let b = this.state.buffers[id];
@@ -736,7 +736,7 @@ const App = {
     grid.classList.remove("beta-on");
     if(!Array.isArray(buf.texts)) buf.texts = [];
     grid.classList.add("stack");
-    let html = '<div class="mwhead">'+(nf>1 ? "YOUR ANSWERS — any order" : "YOUR ANSWER")+'</div><div class="tfields">';
+    let html = '<div class="mwhead">'+(nf>1 ? "YOUR ANSWERS, ANY ORDER" : "YOUR ANSWER")+'</div><div class="tfields">';
     for(let i=0;i<nf;i++){
       html += '<input class="tinput" id="tText'+i+'" data-i="'+i+'" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="answer">';
     }
@@ -774,7 +774,7 @@ const App = {
     grid.innerHTML = '<div class="mwhead">THE FAR DOCK</div>'+
       '<div class="fstage" id="fStage"></div>'+
       '<button class="fbtn" id="fWatch"></button>'+
-      '<div class="fread" id="fRead"><div class="mwhead">LOG THE SIGNAL — '+(b.flashCount||5)+' LETTERS, AS RECEIVED</div><div class="tfields">'+
+      '<div class="fread" id="fRead"><div class="mwhead">LOG THE SIGNAL: '+(b.flashCount||5)+' LETTERS, AS RECEIVED</div><div class="tfields">'+
       '<input class="tinput" id="tText0" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="'+(b.flashCount||5)+'" placeholder="as received"></div></div>';
     const buf = Store.buf(b.id);
     const inp = document.getElementById("tText0");
@@ -828,10 +828,10 @@ const App = {
         return;
       }
       stage.className = "fstage";
-      stage.innerHTML = '<div class="fcount">'+(i+1)+' OF '+seq.length+'</div>'+Logic.semaSVG(seq[i]);
+      stage.innerHTML = Logic.semaSVG(seq[i]);
       setTimeout(()=>{
         if(this._flashToken !== token) return;
-        stage.innerHTML = '<div class="fcount">'+(i+1)+' OF '+seq.length+'</div>';
+        stage.innerHTML = '';
         setTimeout(()=>step(i+1), off);
       }, on);
     };
@@ -865,7 +865,7 @@ const App = {
     grid.innerHTML =
       '<div class="mbanner" id="mBanner">WAND ASLEEP</div>'+
       '<div class="mlast" id="mLast">Pass the unit over a card.</div>'+
-      '<div class="mwhead">THE ACT — cards as the wand meets them</div><div class="mstage" id="mStage"></div>'+
+      '<div class="mwhead">THE ACT: cards as the wand meets them</div><div class="mstage" id="mStage"></div>'+
       '<div class="marm"><button class="btn ghostbtn" id="mArm" type="button">ARM THE WAND</button>'+
       '<button class="btn ghostbtn" id="mReset" type="button">RESET THE ACT</button>'+
       '<span class="mstatus" id="mStatus"></span></div>'+
@@ -912,7 +912,7 @@ const App = {
     const wings = document.getElementById("mWings");
     const head = document.getElementById("mWingsHead");
     if(this._devSim){
-      head.textContent = "SIM DECK — tap to scan (test)";
+      head.textContent = "SIM DECK: tap to scan (test)";
       wings.innerHTML = b.deck.map(c=>'<div class="mchip'+(this.isRed(c.code)?" red":"")+(buf.picks.includes(c.code)?" staged":"")+'" data-code="'+esc(c.code)+'">'+esc(c.label)+'</div>').join("");
       wings.querySelectorAll(".mchip").forEach(ch=>ch.addEventListener("click", ()=>this.handleCardTap(b, ch.dataset.code)));
     } else { head.textContent = ""; wings.innerHTML = ""; }
@@ -940,7 +940,7 @@ const App = {
       if(navigator.vibrate) try{ navigator.vibrate([60,40,60]); }catch(_){}
       const rej = document.getElementById("tReject");
       rej.innerHTML = '<span class="try">Attempt '+Math.min(buf.strikes,CONFIG.strikesBeforeCooldown)+' of '+CONFIG.strikesBeforeCooldown+'</span>'+
-        '<span class="why">That was not the act. The cards are cleared — start again from any card.</span>';
+        '<span class="why">That was not the act. The cards are cleared. Start again from any card.</span>';
       rej.classList.add("show");
       const sheet = document.getElementById("trialSheet");
       sheet.classList.remove("shake"); void sheet.offsetWidth; sheet.classList.add("shake");
@@ -966,7 +966,7 @@ const App = {
   },
 
   armMagic(b){
-    if(!("NDEFReader" in window)){ this.setBanner(false, this._devSim ? "No reader here — use the sim deck." : "No reader in this browser."); return; }
+    if(!("NDEFReader" in window)){ this.setBanner(false, this._devSim ? "No reader here. Use the sim deck." : "No reader in this browser."); return; }
     if(this._nfcCtl){ this.setBanner(true, "Press the unit flat to a card."); return; }
     const ctl = new AbortController();
     const reader = new NDEFReader();
@@ -1051,7 +1051,7 @@ const App = {
         cell.scrollIntoView({block:"center", behavior:"smooth"});
       }
     });
-    toast("Badge earned — "+b.name+". The board remembers.");
+    toast("Badge earned: "+b.name+". The board remembers.");
   },
 
   confirm(){
@@ -1075,8 +1075,8 @@ const App = {
       Store.save();
       if(navigator.vibrate) try{ navigator.vibrate(60); }catch(_){}
       const rej = document.getElementById("tReject");
-      const why = b.flash ? "That is not what was sent. The camp never repeats itself — watch the dock again."
-                          : "The machine is unmoved. Your picks stand — change your mind, not your luck.";
+      const why = b.flash ? "That is not what was sent. The camp never repeats itself. Watch the dock again."
+                          : "The machine is unmoved. Your picks stand. Change your mind, not your luck.";
       if(b.flash){ buf.seq = null; buf.shown = false; buf.text = ""; const f = document.getElementById("tText0"); if(f) f.value = ""; this.renderFlash(b); }
       rej.innerHTML = (b.unlimited ? '<span class="try">Not received</span>' : '<span class="try">Attempt '+Math.min(buf.strikes,CONFIG.strikesBeforeCooldown)+' of '+CONFIG.strikesBeforeCooldown+'</span>')+
         '<span class="why">'+why+'</span>';
