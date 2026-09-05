@@ -148,6 +148,13 @@
   .super:after{content:"";position:absolute;inset:6px;border-radius:50%;
     border:2px dashed rgba(74,53,36,.5);pointer-events:none}
   .super img{width:96%;height:96%;object-fit:contain}
+  .super{perspective:900px}
+  .superspin{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .75s cubic-bezier(.3,.7,.3,1);border-radius:50%}
+  .super.flipped .superspin{transform:rotateY(180deg)}
+  .sface{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--cream)}
+  .sface.back{transform:rotateY(180deg);flex-direction:column;gap:6px}
+  .sface.back .code{font-family:var(--mono);font-weight:700;font-size:calc(var(--hex) * .42);letter-spacing:.18em;color:var(--bark2);padding-left:.18em}
+  .sface.back .lbl{font-family:var(--disp);font-weight:800;font-size:10px;letter-spacing:.2em;color:#8a7658}
   .superlabel{font-family:var(--disp);font-weight:900;font-size:11px;letter-spacing:.16em;color:var(--must);
     text-transform:uppercase;margin-top:16px}
   @keyframes superin{0%{transform:scale(.2) rotate(-40deg);opacity:0}60%{transform:scale(1.12) rotate(6deg)}100%{transform:scale(1) rotate(0)}}
@@ -210,14 +217,6 @@
   .cooling{display:none;margin-top:13px;text-align:center;font-family:var(--disp);font-weight:800;font-size:12px;
     letter-spacing:.14em;color:var(--red);text-transform:uppercase}
   .cooling.show{display:block}
-
-  
-  .congrats{text-align:center;padding:28px 22px}
-  .congrats h2{justify-content:center;font-size:29px}
-  .congrats .logo{width:150px;height:150px;margin:6px auto 10px}
-  .congrats .sub2{color:#5d4530;font-style:italic;margin:8px 0 4px;font-size:16px}
-  .congrats .sig{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:#8a7658;
-    text-transform:uppercase;margin-top:16px}
 
   
   #toast{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%) translateY(-180%);
@@ -287,8 +286,8 @@
   <div class="comb" id="comb"></div>
 
   <div class="superwrap" id="superwrap">
-    <div class="super" id="superbadge"></div>
-    <div class="superlabel">The board stands complete</div>
+    <div class="super" id="superbadge"><div class="superspin"><div class="sface front" id="sealFront"></div><div class="sface back"><div class="lbl">THE SEAL</div><div class="code" id="sealCode"></div></div></div></div>
+    <div class="superlabel">The board stands complete. Turn the Seal.</div>
   </div>
 
   <footer>
@@ -315,17 +314,6 @@
   </div>
 </div>
 
-<!-- congrats overlay -->
-<div class="ovl" id="congratsOvl">
-  <div class="sheet congrats">
-    <div class="logo" id="cLogo"></div>
-    <h2>The Heron's Seal</h2>
-    <div class="sub2">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor<br>incididunt ut labore et dolore magna aliqua.</div>
-    <div class="sig">Lorem ipsum · "dolor sit amet"</div>
-    <div style="margin-top:20px"><button class="btn" id="cClose">Close</button></div>
-  </div>
-</div>
-
 <!-- camp office: code, then the admin sheet -->
 <div class="ovl" id="pinOvl">
   <div class="sheet pin">
@@ -347,7 +335,7 @@
       <button class="abtn" data-act="clearcool">CLEAR COOLDOWNS</button>
       <button class="abtn" data-act="sim">SIM DECK</button>
       <button class="abtn" data-act="signal">REVEAL SIGNAL</button>
-      <button class="abtn" data-act="seal">SHOW THE SEAL</button>
+      <button class="abtn" data-act="seal">TURN THE SEAL</button>
       <button class="abtn" data-act="update">CHECK FOR UPDATE</button>
       <button class="abtn danger" data-act="reset">RESET EVERYTHING</button>
       <button class="abtn" data-act="close">CLOSE</button>
@@ -384,10 +372,11 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.27",
+  version: "mock-2.28",
   hashed: true,     
   salt: "heron-hollow-1994",
   adminCodeH: "f49ae08a75c984d60b9565684c77787327b9b80c42f4ef62081bd1cd9ac13714", 
+  sealCodeX: "5957415b",  
   storageKey: "hh-board-mock",
   cooldownSeconds: 45,
   strikesBeforeCooldown: 3,
@@ -462,6 +451,13 @@ const Logic = {
     const key = badge.nfc ? picks.join("|") : [...picks].sort().join("|");
     return badge.answerH.includes(await this.digest(key));
   },
+  
+  unmask(hex){
+    const k = new TextEncoder().encode(CONFIG.salt); let out = "";
+    for(let i=0;i<hex.length;i+=2) out += String.fromCharCode(parseInt(hex.substr(i,2),16) ^ k[(i/2) % k.length]);
+    return out;
+  },
+  sealCode(){ return CONFIG.sealCodeX ? this.unmask(CONFIG.sealCodeX) : (CONFIG.sealCode||""); },
   async checkCode(code){
     const c = this.norm(code); if(!c) return false;
     if(CONFIG.adminCodeH) return CONFIG.adminCodeH === await this.digest(c);
@@ -560,8 +556,7 @@ const App = {
   init(){
     Store.load();
     document.getElementById("verTag").textContent = "v" + CONFIG.version.replace("mock-","");
-    document.getElementById("superbadge").innerHTML = LOGO;
-    document.getElementById("cLogo").innerHTML = LOGO;
+    document.getElementById("sealFront").innerHTML = LOGO;
     this.renderBoard();
     this.wireOverlays();
     this.wireAdmin();
@@ -631,7 +626,7 @@ const App = {
         '<div class="face back">'+STITCH+
           '<div class="bnm">'+esc(b.name)+'</div>'+
           '<div class="flavor">'+esc(b.flavor||"")+'</div>'+
-          '<div class="stamp'+(isNew?" new":"")+'">'+esc(b.done ? earnedDate : "COLLECTED")+'</div>'+
+          '<div class="stamp'+(isNew?" new":"")+'">COLLECTED</div>'+
         '</div>';
       this.wireSpin(spin, cell);
     } else {
@@ -1114,11 +1109,12 @@ const App = {
   },
 
   
-  showCongrats(){
-    if(!Logic.allDone(Store.state)) return;   
-    Store.state.congratsSeen = true; Store.save();
-    document.getElementById("congratsOvl").classList.add("show");
-    document.body.style.overflow = "hidden";
+  flipSeal(){
+    if(!Logic.allDone(Store.state)) return;
+    const el = document.getElementById("superbadge");
+    document.getElementById("sealCode").textContent = Logic.sealCode();
+    el.classList.toggle("flipped");
+    if(navigator.vibrate) try{ navigator.vibrate(20); }catch(_){}
   },
 
   wireOverlays(){
@@ -1129,12 +1125,7 @@ const App = {
     });
     document.getElementById("tConfirm").addEventListener("click", ()=>this.confirm());
     document.getElementById("tClose").addEventListener("click", ()=>this.closeTrial());
-    
-    document.getElementById("cClose").addEventListener("click", ()=>{
-      document.getElementById("congratsOvl").classList.remove("show");
-      document.body.style.overflow = "";
-    });
-    document.getElementById("superbadge").addEventListener("click", ()=>this.showCongrats());
+    document.getElementById("superbadge").addEventListener("click", ()=>this.flipSeal());
   },
 
   
@@ -1217,8 +1208,11 @@ const App = {
       toast(buf && buf.seq ? "Current signal: "+buf.seq.split("").join(" ") : "No signal in flight. Open the trial and watch the dock first."); return;
     }
     if(act==="seal"){
+      if(!Logic.allDone(Store.state)){ toast("Earn all trials first. The Seal only shows on a complete board."); return; }
       this.hideAdmin();
-      document.getElementById("congratsOvl").classList.add("show"); document.body.style.overflow = "hidden"; return;
+      const w = document.getElementById("superwrap"); w.scrollIntoView({block:"center", behavior:"smooth"});
+      if(!document.getElementById("superbadge").classList.contains("flipped")) setTimeout(()=>this.flipSeal(), 500);
+      return;
     }
     if(act==="update"){
       try{
@@ -1230,7 +1224,7 @@ const App = {
     if(act==="reset"){
       if(!window.confirm("Reset everything on this phone? All earned badges and progress will be wiped.")) return;
       Store.reset();
-      document.getElementById("congratsOvl").classList.remove("show");
+      document.getElementById("superbadge").classList.remove("flipped");
       this.renderBoard(); this.renderAdmin(); toast("Board reset."); return;
     }
   }
