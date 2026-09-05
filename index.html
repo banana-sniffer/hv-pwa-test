@@ -372,7 +372,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.30",
+  version: "mock-2.31",
   hashed: true,     
   salt: "heron-hollow-1994",
   adminCodeH: "f49ae08a75c984d60b9565684c77787327b9b80c42f4ef62081bd1cd9ac13714", 
@@ -384,7 +384,7 @@ const CONFIG = {
     { id:"knot",  name:"Knot Tying",   icon:"knot",    done:"JUL 1987", patch:"#d0734a", icontint:"#241a10",
       flavor:"Eight hitches, one rope, no slack." },
     { id:"orient", name:"Orienteering", icon:"compass", trial:true, text:true, fields:4, patch:"#7da3b8", icontint:"#241a10",
-      intro:"The trail paid out at four heights. Name the four points you sighted on the way up.",
+      intro:"",   
       flavor:"Found every control before the horn.",
       
       setsH:[["08d8f94489bfa45a495586cca40f0a4fa779c9ce65eba9bc38ecd59c9f8dc1a0", "71dc1d5ef5fb695bf2074b157930299f81239ca14e877add3898144ab2400544", "08d8f94489bfa45a495586cca40f0a4fa779c9ce65eba9bc38ecd59c9f8dc1a0"], ["2fd708f77c1e22bb8dcf4832fc9f0bbd7da1232b2c5d82c959468d9462d63506", "d240759ec68592b3a8d5b6c515a851e3c37500a25186239a5557750df2144ad0"], ["fe2a640c71940369a4ab2b22c1a5e9f406dbebf11b302a5dcd65717b56865c7a", "64fd16e4504237f42ac791798cc80af990293589ac6f06c5d1c9fdf5ecc7f94a"], ["f19e970ae7ffc9fa3851323333938f5ea1de1423d1bb599b72836d606836b086", "f912e190c6dbc7f89b47ef4478421d15d66ae01d886fe272c6b456d97caebd35"]],
@@ -401,7 +401,7 @@ const CONFIG = {
     { id:"carve", name:"Woodcarving",  icon:"carve",   done:"JUN 2001", patch:"#8a5560", icontint:"#f6f0d2",
       flavor:"One block, one blade, steady hands." },
     { id:"bird", name:"Bird Study", icon:"bird", trial:true, patch:"#5d9668", icontint:"#241a10",
-      intro:"Tune the camp radio to 97.1. Five calls play on repeat. Ten birds are listed below. Mark the five you hear; the machine already knows their voices.",
+      intro:"",   
       flavor:"Knew five voices in the dark.",
       
       items:["Barred Owl","Great Horned Owl","Eastern Phoebe","Black-capped Chickadee","Carolina Wren",
@@ -413,7 +413,7 @@ const CONFIG = {
       
       need:1, answerH:["112ebd04bdd36ff6e931ec081b1aa00b76f3b1422ed96f7a0c4e39b578e5b56e", "edc9f5dcec05e055a06884451398ca7b299ca6d7ec374bb136314be689fb5ed6", "d825d07d1e5a76d613573daca117bfa1bf4570864ae041b74559187b450ed1f0", "3b0daa7e764e1322fa0c653ca15fc9e0381b6d1a6de209693945ded766c350a8", "cc2a1f54208f459355ba0c1aaf9f47cf86ffed119e0c76f119d48f433efd6d86", "ded450e7d97df60aa75f16f98aef9fc3d7970b951d2752dac68e4f8e0a41ab2c"] },
     { id:"magic", name:"Magic", icon:"magic", trial:true, nfc:true, cyclic:true, patch:"#8a5560", icontint:"#f6f0d2", stitch:"#dca83f",
-      intro:"Seven cards hang on the wall. Set them in Si Stebbins order and pass the wand over each in turn. Start anywhere. The order is the act.",
+      intro:"",   
       flavor:"The deck never forgot its order.",
       
       deck:[ {code:"2H",label:"2♥"},{code:"5S",label:"5♠"},{code:"8D",label:"8♦"},{code:"JC",label:"J♣"},
@@ -713,7 +713,7 @@ const App = {
     const NUMW = {3:"THREE",4:"FOUR",5:"FIVE",6:"SIX",7:"SEVEN",8:"EIGHT"};
     document.getElementById("tKicker").textContent = "BADGE TRIAL · PICK THE "+(NUMW[Logic.need(b)]||Logic.need(b));
     document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
-    document.getElementById("tIntro").textContent = b.intro;
+    this.setIntro(b);
     const buf = Store.buf(id);
     buf.picks = buf.picks.filter(p=>b.items.includes(p));
     const grid = document.getElementById("tGrid");
@@ -741,13 +741,19 @@ const App = {
     document.body.style.overflow = "hidden";
   },
 
+  setIntro(b){
+    const el = document.getElementById("tIntro");
+    el.textContent = b.intro || "";
+    el.style.display = b.intro ? "" : "none";
+  },
+
   
   showTextTrial(b){
     this.openTrial = b.id;
     const nf = b.fields || 1;
     document.getElementById("tKicker").textContent = b.kicker || (nf > 1 ? "BADGE TRIAL · NAME THE "+({2:"TWO",3:"THREE",4:"FOUR",5:"FIVE"}[nf]||nf) : "BADGE TRIAL · SOLVE WHAT IS HIDDEN");
     document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
-    document.getElementById("tIntro").textContent = b.intro;
+    this.setIntro(b);
     const buf = Store.buf(b.id);
     const grid = document.getElementById("tGrid");
     if(!Array.isArray(buf.texts)) buf.texts = [];
@@ -783,7 +789,7 @@ const App = {
     this.openTrial = b.id;
     document.getElementById("tKicker").textContent = b.kicker || "BADGE TRIAL · READ THE FLAGS";
     document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
-    document.getElementById("tIntro").style.display = "none";
+    this.setIntro(b);
     const grid = document.getElementById("tGrid");
     grid.classList.add("stack");
     grid.innerHTML = '<div class="mwhead">THE FAR DOCK</div>'+
@@ -864,7 +870,7 @@ const App = {
     this.openTrial = b.id;
     document.getElementById("tKicker").textContent = "BADGE TRIAL · PERFORM THE ACT";
     document.getElementById("tTitle").innerHTML = ICONS[b.icon] + esc(b.name);
-    document.getElementById("tIntro").textContent = b.intro;
+    this.setIntro(b);
     const buf = Store.buf(b.id);
     if(!Array.isArray(buf.found)) buf.found = [];
     buf.picks = buf.picks.filter(c=>this.cardByCode(b,c));
