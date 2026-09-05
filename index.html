@@ -384,7 +384,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.26",
+  version: "mock-2.27",
   hashed: true,     
   salt: "heron-hollow-1994",
   adminCodeH: "f49ae08a75c984d60b9565684c77787327b9b80c42f4ef62081bd1cd9ac13714", 
@@ -631,7 +631,7 @@ const App = {
         '<div class="face back">'+STITCH+
           '<div class="bnm">'+esc(b.name)+'</div>'+
           '<div class="flavor">'+esc(b.flavor||"")+'</div>'+
-          '<div class="stamp'+(isNew?" new":"")+'">'+esc(earnedDate)+'</div>'+
+          '<div class="stamp'+(isNew?" new":"")+'">'+esc(b.done ? earnedDate : "COLLECTED")+'</div>'+
         '</div>';
       this.wireSpin(spin, cell);
     } else {
