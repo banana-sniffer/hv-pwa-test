@@ -87,7 +87,7 @@
     var(--patch,var(--leaf))}
   .earned .front .stitch{color:var(--stitchc,var(--cream))}
   .earned .front .inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:5px;padding:17% 15%}
+    justify-content:center;gap:3px;padding:17% 15%;will-change:transform}   
   .earned .front svg.icon{width:42%;height:42%;color:var(--icon,var(--outline))}
   .earned .front .nm{font-family:var(--disp);font-weight:900;font-size:10.5px;letter-spacing:.07em;
     text-transform:uppercase;color:var(--nmc,var(--outline));text-align:center;padding:0 8px;max-width:82%}
@@ -372,7 +372,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.28",
+  version: "mock-2.29",
   hashed: true,     
   salt: "heron-hollow-1994",
   adminCodeH: "f49ae08a75c984d60b9565684c77787327b9b80c42f4ef62081bd1cd9ac13714", 
@@ -560,6 +560,9 @@ const App = {
     this.renderBoard();
     this.wireOverlays();
     this.wireAdmin();
+    window.addEventListener("resize", ()=>this.centerFaces());
+    document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) this.centerFaces(); });
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>this.centerFaces());
     setInterval(()=>{
       if(this.openTrial) this.renderTrialState();
       else this.updateEmptySlots();
@@ -600,6 +603,7 @@ const App = {
     const total = preEarned + earnedTrials;
     document.getElementById("progress").innerHTML =
       "<b>"+total+"</b> of "+totalAll+" badges on the board" + (total===totalAll ? " · the machine is satisfied" : "");
+    requestAnimationFrame(()=>this.centerFaces());
     const done = Logic.allDone(Store.state);
     const wasShown = document.getElementById("superwrap").classList.contains("show");
     document.getElementById("superwrap").classList.toggle("show", done);
@@ -1106,6 +1110,30 @@ const App = {
     if(this._nfcCtl){ try{ this._nfcCtl.abort(); }catch(_){} this._nfcCtl = null; }
     document.getElementById("trialOvl").classList.remove("show");
     document.body.style.overflow = "";
+  },
+
+  
+  centerFaces(tries){
+    tries = tries || 0;
+    let again = false;
+    document.querySelectorAll(".cell.earned .front").forEach(face=>{
+      const inner = face.querySelector(".inner"), svg = face.querySelector("svg.icon"), nm = face.querySelector(".nm");
+      if(!inner || !svg || !nm) return;
+      const fr = face.getBoundingClientRect();
+      const k = face.offsetHeight ? fr.height/face.offsetHeight : 0;   
+      if(!(k >= 0.98)){ again = true; return; }
+      inner.style.transform = "";
+      let top;
+      try{
+        const bb = svg.getBBox(), vb = svg.viewBox.baseVal, sb = svg.getBoundingClientRect();
+        const sc = vb.height ? sb.height/vb.height : 1;
+        top = sb.top + (bb.y - vb.y)*sc;
+      }catch(_){ top = svg.getBoundingClientRect().top; }
+      const nb = nm.getBoundingClientRect();
+      const dy = (fr.top + fr.height/2) - (top + nb.bottom)/2;
+      if(isFinite(dy) && Math.abs(dy) > 0.5) inner.style.transform = "translateY("+dy.toFixed(1)+"px)";
+    });
+    if(again && tries < 16) setTimeout(()=>this.centerFaces(tries+1), 250);
   },
 
   
