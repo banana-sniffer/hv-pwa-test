@@ -90,7 +90,7 @@
     justify-content:center;gap:3px;padding:17% 15%;will-change:transform}   
   .earned .front svg.icon{width:42%;height:42%;color:var(--icon,var(--outline))}
   .earned .front .nm{font-family:var(--disp);font-weight:900;font-size:10.5px;letter-spacing:.07em;
-    text-transform:uppercase;color:var(--nmc,var(--outline));text-align:center;padding:0 8px;max-width:82%}
+    text-transform:uppercase;color:var(--nmc,var(--outline));text-align:center;padding:0;width:100%;white-space:normal;line-height:1.25}
   .earned .back{background:
     linear-gradient(180deg,rgba(255,255,255,.5),transparent 40%,rgba(74,53,36,.14)),
     var(--cream);
@@ -372,7 +372,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.29",
+  version: "mock-2.30",
   hashed: true,     
   salt: "heron-hollow-1994",
   adminCodeH: "f49ae08a75c984d60b9565684c77787327b9b80c42f4ef62081bd1cd9ac13714", 
@@ -562,8 +562,10 @@ const App = {
     this.wireAdmin();
     window.addEventListener("resize", ()=>this.centerFaces());
     document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) this.centerFaces(); });
+    document.getElementById("comb").addEventListener("animationend", ()=>this.centerFaces());
     if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>this.centerFaces());
     setInterval(()=>{
+      if(document.querySelector(".cell.earned .front:not([data-centered])")) this.centerFaces();
       if(this.openTrial) this.renderTrialState();
       else this.updateEmptySlots();
     }, 500);
@@ -1116,24 +1118,36 @@ const App = {
   centerFaces(tries){
     tries = tries || 0;
     let again = false;
-    document.querySelectorAll(".cell.earned .front").forEach(face=>{
+    document.querySelectorAll(".cell.earned .front").forEach(face=>{ try{
       const inner = face.querySelector(".inner"), svg = face.querySelector("svg.icon"), nm = face.querySelector(".nm");
       if(!inner || !svg || !nm) return;
+      const cell = face.closest(".cell");
       const fr = face.getBoundingClientRect();
       const k = face.offsetHeight ? fr.height/face.offsetHeight : 0;   
-      if(!(k >= 0.98)){ again = true; return; }
-      inner.style.transform = "";
-      let top;
+      const animating = cell && cell.getAnimations && cell.getAnimations({subtree:true}).some(a=>a.playState === "running");
+      if(animating || !(k >= 0.98 && k <= 1.06)){ again = true; return; }
+      inner.style.transform = ""; svg.style.transform = ""; nm.style.transform = ""; nm.style.fontSize = "";
+      const cx = fr.left + fr.width/2, cy = fr.top + fr.height/2;
+      
+      const ls = parseFloat(getComputedStyle(nm).letterSpacing) || 0;
+      const textBox = ()=>{ const r = document.createRange(); r.selectNodeContents(nm); const b = r.getBoundingClientRect(); return {left:b.left, right:b.right - ls, top:b.top, bottom:b.bottom, width:b.width - ls}; };
+      let tb = textBox(), fs = parseFloat(getComputedStyle(nm).fontSize);
+      while(tb.width > fr.width*0.78 && fs > 7.5){ fs -= 0.5; nm.style.fontSize = fs+"px"; tb = textBox(); }
+      
+      let gLeft, gRight, gTop;
       try{
         const bb = svg.getBBox(), vb = svg.viewBox.baseVal, sb = svg.getBoundingClientRect();
-        const sc = vb.height ? sb.height/vb.height : 1;
-        top = sb.top + (bb.y - vb.y)*sc;
-      }catch(_){ top = svg.getBoundingClientRect().top; }
-      const nb = nm.getBoundingClientRect();
-      const dy = (fr.top + fr.height/2) - (top + nb.bottom)/2;
+        const scx = vb.width ? sb.width/vb.width : 1, scy = vb.height ? sb.height/vb.height : 1;
+        gLeft = sb.left + (bb.x - vb.x)*scx; gRight = gLeft + bb.width*scx; gTop = sb.top + (bb.y - vb.y)*scy;
+      }catch(_){ const sb = svg.getBoundingClientRect(); gLeft = sb.left; gRight = sb.right; gTop = sb.top; }
+      const dxIcon = cx - (gLeft + gRight)/2, dxText = cx - (tb.left + tb.right)/2;
+      if(isFinite(dxIcon) && Math.abs(dxIcon) > 0.5) svg.style.transform = "translateX("+dxIcon.toFixed(1)+"px)";
+      if(isFinite(dxText) && Math.abs(dxText) > 0.5) nm.style.transform = "translateX("+dxText.toFixed(1)+"px)";
+      const dy = cy - (gTop + tb.bottom)/2;
       if(isFinite(dy) && Math.abs(dy) > 0.5) inner.style.transform = "translateY("+dy.toFixed(1)+"px)";
-    });
-    if(again && tries < 16) setTimeout(()=>this.centerFaces(tries+1), 250);
+      face.dataset.centered = "1";
+    }catch(_){ again = true; } });
+    if(again && tries < 40) setTimeout(()=>this.centerFaces(tries+1), 250);
   },
 
   
