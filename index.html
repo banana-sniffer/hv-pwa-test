@@ -384,7 +384,7 @@ const ICONS = {
 };
 
 const CONFIG = {
-  version: "mock-2.25",
+  version: "mock-2.26",
   hashed: true,     
   salt: "heron-hollow-1994",
   adminCodeH: "f49ae08a75c984d60b9565684c77787327b9b80c42f4ef62081bd1cd9ac13714", 
@@ -1174,11 +1174,12 @@ const App = {
   hideAdmin(){ document.getElementById("adminOvl").classList.remove("show"); document.body.style.overflow = ""; },
   renderAdmin(){
     const st = Store.state, now = Date.now();
-    const earnedN = CONFIG.badges.filter(b=>st.earned[b.id]).length;
+    const earnedN = CONFIG.badges.filter(b=>b.done || st.earned[b.id]).length;
     document.getElementById("admVer").textContent = "APP v"+CONFIG.version.replace("mock-","")+" · "+earnedN+" OF "+CONFIG.badges.length+" EARNED · "+(CONFIG.hashed ? "SEALED BUILD" : "DEV BUILD, PLAINTEXT ANSWERS");
     document.getElementById("admRows").innerHTML = CONFIG.badges.map(b=>{
+      if(b.done) return '<div class="arow"><div><span class="nm">'+esc(b.name)+'</span><span class="st">pre-earned patch, always on</span></div></div>';
       const on = !!st.earned[b.id], buf = st.buffers[b.id] || {};
-      let stat = on ? "earned "+st.earned[b.id] : (b.trial ? "not earned" : "patch not earned");
+      let stat = on ? "earned "+st.earned[b.id] : "not earned";
       if(!on && b.trial){
         const parts = [];
         if(buf.strikes) parts.push(buf.strikes+" strike"+(buf.strikes>1?"s":""));
